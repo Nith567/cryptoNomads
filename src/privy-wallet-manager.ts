@@ -244,6 +244,31 @@ export class PrivyWalletManager {
       return null;
     }
   }
+
+  /**
+   * Get wallet private key (use with caution!)
+   */
+  async getWalletPrivateKey(walletId: string): Promise<string | null> {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/v1/wallets/${walletId}/rpc`,
+        {
+          method: 'eth_exportPrivateKey',
+          params: {}
+        },
+        { headers: this.getAuthHeaders() }
+      );
+
+      if (response.data && response.data.data) {
+        return response.data.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error getting private key:', error);
+      return null;
+    }
+  }
 }
 
 export const privyWalletManager = new PrivyWalletManager();
