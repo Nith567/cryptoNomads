@@ -90,6 +90,7 @@ Role Assignment → Channel Access → Payment System → Universal Identity
 | `/send @user amount` | Send CELO by Discord username | Verified users |
 | `/setup-channels` | Create country-specific channels | Admins only |
 | `/reset-permissions` | Reset all channel permissions | Admins only |
+| `/emergency-lockdown` | 🚨 Lock down all channels and re-grant access | Admins only |
 
 ---
 
