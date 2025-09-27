@@ -1,0 +1,18 @@
+{
+  "wallets": {
+    "security-test-user-123": {
+      "discordId": "security-test-user-123",
+      "encryptedPrivateKey": "U2FsdGVkX1+ofhoKvA+ZaNeg71rHj25JsMN84XoVbU13B0d9P+aBbL7QPo+LbyuxfNc3RhS+HbFv2N0pVCm7WhGO7jnKtQL47fv8pR7X+KNAoCsB7I0qd5MxdIA31GJM",
+      "publicKey": "0x0338d484c89f8f87dd7174522b3df0a34532e55a3210a3c73353f90d32656db7d8",
+      "address": "0xBC69975eDaa54BB917e27F1325Eff35FB3990a81",
+      "createdAt": "2025-08-04T10:53:07.472Z"
+    },
+    "1356431152709243040": {
+      "discordId": "1356431152709243040",
+      "encryptedPrivateKey": "U2FsdGVkX18bUX8dbqxGI/2uRGh0xUHfscyYIh12BKLFQi8SCR8h75/tdvQHsBMuxnb0qmZiBb6D2Jqg6TYn1WlonGaj4FmS2IXQcfgNqAr9W2PZ+pJd3meg5pXnwSUW",
+      "publicKey": "0x02389648d30d242d8c2c37d1fd26a0f5d5021bdea43fa18ea58a8133dceba5c26c",
+      "address": "0x8C8ceaE87Db52BFbde03562D578caAF26EabfA9A",
+      "createdAt": "2025-08-10T12:45:03.367Z"
+    }
+  }
+}
