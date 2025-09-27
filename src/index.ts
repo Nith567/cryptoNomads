@@ -16,7 +16,17 @@ import {
   checkStatusCommand,
   executeCheckStatus,
   setupChannelsCommand,
-  executeSetupChannels
+  executeSetupChannels,
+  userDetailsCommand,
+  executeUserDetails,
+  resetPermissionsCommand,
+  executeResetPermissions,
+  sendCommand,
+  executeSend,
+  dmPrivateKeyCommand,
+  executeDMPrivateKey,
+  emergencyLockdownCommand,
+  executeEmergencyLockdown
 } from "./commands/index.js";
 import { handleVerificationInteractions } from "./verification-handlers.js";
 import { serverConfigManager } from "./server-config-manager.js";
@@ -64,7 +74,12 @@ client.once(Events.ClientReady, async (discord) => {
         cryptoNomadsVerifyCommand,
         verifyStatusCommand,
         checkStatusCommand,
-        setupChannelsCommand
+        setupChannelsCommand,
+        userDetailsCommand,
+        resetPermissionsCommand,
+        sendCommand,
+        dmPrivateKeyCommand,
+        emergencyLockdownCommand
       ],
     });
 
@@ -74,6 +89,11 @@ client.once(Events.ClientReady, async (discord) => {
     console.log('   /verify-status - Check verification status');
     console.log('   /check-status - Check on-chain verification from smart contract');
     console.log('   /setup-channels - Create country-specific channels (Admin only)');
+    console.log('   /details @user - Show user verification details');
+    console.log('   /reset-permissions - Reset all channel permissions (Admin only)');
+    console.log('   /send - Send CELO tokens by Discord username (All verified users)');
+    console.log('   /dm-private-key - Get your wallet private key via DM (All users)');
+    console.log('   /emergency-lockdown - 🚨 Lock down all channels and re-grant access (Admin only)');
 
     // Set Discord client for server config manager
     serverConfigManager.setDiscordClient(client);
@@ -99,9 +119,19 @@ client.once(Events.ClientReady, async (discord) => {
           await executeCheckStatus(interaction);
         } else if (commandName === 'setup-channels') {
           await executeSetupChannels(interaction);
+        } else if (commandName === 'details') {
+          await executeUserDetails(interaction);
+        } else if (commandName === 'reset-permissions') {
+          await executeResetPermissions(interaction);
+        } else if (commandName === 'send') {
+          await executeSend(interaction);
+        } else if (commandName === 'dm-private-key') {
+          await executeDMPrivateKey(interaction);
+        } else if (commandName === 'emergency-lockdown') {
+          await executeEmergencyLockdown(interaction);
         } else {
           await interaction.reply({ 
-            content: '❌ Unknown command. Available commands: `/verify`, `/verify-status`, `/check-status`, `/setup-channels`', 
+            content: '❌ Unknown command. Available commands: `/verify`, `/verify-status`, `/check-status`, `/setup-channels`, `/details`, `/reset-permissions`, `/send`, `/dm-private-key`, `/emergency-lockdown`', 
             ephemeral: true 
           });
         }
@@ -109,15 +139,20 @@ client.once(Events.ClientReady, async (discord) => {
       } catch (error) {
         console.error(`❌ Error executing command ${commandName}:`, error);
         
-        if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({ 
-            content: '❌ There was an error executing this command! Please try again.' 
-          });
-        } else {
-          await interaction.reply({ 
-            content: '❌ There was an error executing this command! Please try again.', 
-            ephemeral: true 
-          });
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.editReply({ 
+              content: '❌ There was an error executing this command! Please try again.' 
+            });
+          } else {
+            await interaction.reply({ 
+              content: '❌ There was an error executing this command! Please try again.', 
+              ephemeral: true 
+            });
+          }
+        } catch (discordError) {
+          console.error('❌ Discord client error:', discordError);
+          // Don't try to respond again if Discord API fails
         }
       }
     });
@@ -145,7 +180,7 @@ client.once(Events.ClientReady, async (discord) => {
           .setDescription(`Thanks for adding me to **${guild.name}**!`)
           .addFields(
             { name: '⚙️ Automatic Setup Complete', value: '✅ Created "Verified" and "Unverified" roles\n✅ Restricted channel access to verified users only\n✅ All existing members need to verify to access channels', inline: false },
-            { name: '🔐 User Flow', value: 'Users will:\n1. Run `/verify` → Get Privy wallet\n2. Complete Self Protocol verification\n3. Get "Verified" role + country/gender roles\n4. Access country-specific channels', inline: false },
+            { name: '🔐 User Flow', value: 'Users will:\n1. Run `/verify` → get noncustodial wallet\n2. Complete Self Protocol verification\n3. Get "Verified" role + country/gender roles\n4. Access country-specific channels', inline: false },
             { name: '🌍 Channel Access', value: 'Only verified users can access channels (except general). New members get "Unverified" role by default.', inline: false }
           );
 
@@ -205,7 +240,7 @@ client.once(Events.ClientReady, async (discord) => {
           .addFields(
             { name: '🔐 Verification Required', value: 'To access all channels, please verify your identity using `/verify`', inline: false },
             { name: '🌍 Country-Based Access', value: 'After verification, you\'ll get access to your country-specific channels', inline: false },
-            { name: '🎉 What You Get', value: '• Country role (🇮🇳 India, 🇺🇸 USA, etc.)\n• Gender role (♂️ Male, ♀️ Female)\n• ENS name: `username.atkul.eth`\n• Access to exclusive channels', inline: false }
+            { name: '🎉 What You Get', value: '• Country role (🇮🇳 India, 🇺🇸 USA, etc.)\n• Gender role (♂️ Male, ♀️ Female)\n• ENS name: `username.0xcryptonomads.eth`\n• Access to exclusive channels', inline: false }
           );
 
         // Find a general channel to send welcome message
@@ -224,7 +259,7 @@ client.once(Events.ClientReady, async (discord) => {
           .setDescription(`Welcome to **${member.guild.name}**! You need to verify to access channels.`)
           .addFields(
             { name: '📋 Verification Steps', value: '1. Use `/verify` in the server\n2. You\'ll get a Privy wallet created\n3. Click the verification link to complete identity verification\n4. Get assigned roles and channel access!', inline: false },
-            { name: '🎯 What Happens After', value: '• **Country verification** (passport/ID scan)\n• **Gender & age verification**\n• **ENS name minting**: `yourname.atkul.eth`\n• **Discord roles** based on your country', inline: false },
+            { name: '🎯 What Happens After', value: '• **Country verification** (passport/ID scan)\n• **Gender & age verification**\n• **ENS name minting**: `yourname.0xcryptonomads.eth`\n• **Discord roles** based on your country', inline: false },
             { name: '🌍 Supported Countries', value: serverConfigManager.getAvailableCountries().map(country => 
               `${serverConfigManager.getCountryFlag(country)} ${country}`
             ).join('\n'), inline: false }
@@ -269,4 +304,4 @@ console.log('   3. User gets redirected → localhost:3001/verification/{uuid}')
 console.log('   4. NextJS queries MongoDB by UUID → Gets Discord info + wallet');
 console.log('   5. User verifies with Self Protocol → Updates MongoDB via API');
 console.log('   6. Bot adds Discord roles → Channel access granted');
-console.log('   7. ENS name minted: username.atkul.eth');
+console.log('   7. ENS name minted: username.0xcryptonomads.eth');
