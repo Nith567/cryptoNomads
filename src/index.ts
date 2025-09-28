@@ -72,7 +72,6 @@ client.once(Events.ClientReady, async (discord) => {
     await rest.put(Routes.applicationCommands(APPLICATION_ID), {
       body: [
         cryptoNomadsVerifyCommand,
-        verifyStatusCommand,
         checkStatusCommand,
         setupChannelsCommand,
         userDetailsCommand,
@@ -86,7 +85,6 @@ client.once(Events.ClientReady, async (discord) => {
     console.log('✅ Successfully registered CryptoNomads commands!');
     console.log('📋 Available commands:');
     console.log('   /verify - Start CryptoNomads verification');
-    console.log('   /verify-status - Check verification status');
     console.log('   /check-status - Check on-chain verification from smart contract');
     console.log('   /setup-channels - Create country-specific channels (Admin only)');
     console.log('   /details @user - Show user verification details');
@@ -114,9 +112,9 @@ client.once(Events.ClientReady, async (discord) => {
         // CryptoNomads Verification Commands
         if (commandName === 'verify') {
           await executeCryptoNomadsVerify(interaction);
-        } else if (commandName === 'verify-status') {
-          await executeVerifyStatus(interaction);
-        } else if (commandName === 'check-status') {
+        } 
+        
+        else if (commandName === 'check-status') {
           await executeCheckStatus(interaction);
         } else if (commandName === 'setup-channels') {
           await executeSetupChannels(interaction);
@@ -132,7 +130,7 @@ client.once(Events.ClientReady, async (discord) => {
           await executeDeposit(interaction);
         } else {
           await interaction.reply({ 
-            content: '❌ Unknown command. Available commands: `/verify`, `/verify-status`, `/check-status`, `/setup-channels`, `/details`, `/reset-permissions`, `/send`, `/dm-private-key`, `/emergency-lockdown`, `/deposit`', 
+            content: '❌ Unknown command. Available commands: `/verify`, `/check-status`, `/setup-channels`, `/details`, `/reset-permissions`, `/send`, `/dm-private-key`, `/emergency-lockdown`, `/deposit`', 
             ephemeral: true 
           });
         }
