@@ -14,7 +14,7 @@ CryptoNomads eliminates the friction between social identity and Web3 by creatin
 
 ### 🔐 **Core Flow**
 1. **Verify with Self Protocol** → Country, Gender, Age verification
-2. **Auto-mint ENS Subdomain** → `username.0xcryptonomads.eth` 
+2. **Auto-mint ENS Subdomain** → `discord-username.0xcryptonomads.eth` 
 3. **Smart Role Assignment** → Country/Gender/Age roles automatically assigned
 4. **Channel Isolation** → Only see your country's channel, complete privacy
 5. **Universal Payments** → Send CELO with Discord usernames, no wallet addresses needed
