@@ -279,42 +279,33 @@ export class PrivyWalletManager {
     error?: string;
   }> {
     try {
-      // Use the correct Privy API format for balance
-      const response = await axios.post(
-        `${this.baseUrl}/v1/wallets/${walletId}/rpc`,
-        {
-          method: 'getBalance',
-          caip2: `eip155:${chainId}`, // Celo mainnet
-          currency: 'CELO'
-        },
-        { headers: this.getAuthHeaders() }
-      );
-
-      if (response.data && response.data.data) {
-        const balance = response.data.data.balance || response.data.data;
-        return { balance: balance.toString() };
-      }
-
-      // Fallback: Use external Celo RPC
-      console.log('⚠️  Privy balance failed, using external RPC...');
+      console.log(`💰 Getting balance for wallet ${walletId} on chain ${chainId}`);
+      
+      // Skip Privy balance API (doesn't work) - go directly to external RPC
       const wallet = await this.getWallet(walletId);
-      if (wallet) {
-        const celoRpc = 'https://forno.celo.org';
-        const balanceResponse = await axios.post(celoRpc, {
-          jsonrpc: '2.0',
-          method: 'eth_getBalance',
-          params: [wallet.address, 'latest'],
-          id: 1
-        });
-
-        if (balanceResponse.data && balanceResponse.data.result) {
-          const balanceWei = balanceResponse.data.result;
-          const balanceCelo = (parseInt(balanceWei, 16) / Math.pow(10, 18)).toFixed(6);
-          return { balance: balanceCelo };
-        }
+      if (!wallet) {
+        return { balance: '0', error: 'Wallet not found' };
       }
 
-      return { balance: '0', error: 'Could not get balance' };
+      console.log(`🔍 Wallet address: ${wallet.address}`);
+      
+      // Use external Celo RPC directly
+      const celoRpc = 'https://forno.celo.org';
+      const balanceResponse = await axios.post(celoRpc, {
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [wallet.address, 'latest'],
+        id: 1
+      });
+
+      if (balanceResponse.data && balanceResponse.data.result) {
+        const balanceWei = balanceResponse.data.result;
+        const balanceCelo = (parseInt(balanceWei, 16) / Math.pow(10, 18)).toFixed(6);
+        console.log(`✅ Balance retrieved: ${balanceCelo} CELO`);
+        return { balance: balanceCelo };
+      }
+
+      return { balance: '0', error: 'Could not get balance from RPC' };
     } catch (error) {
       console.error('Error getting CELO balance:', error);
       return { balance: '0', error: error.response?.data?.error || error.message || 'Unknown error' };
@@ -369,14 +360,32 @@ export class PrivyWalletManager {
       );
 
       if (response.data && response.data.data) {
-        const txHash = response.data.data;
+        // Extract hash from response data object
+        const responseData = response.data.data;
+        console.log(`📋 Full Privy response data:`, JSON.stringify(responseData, null, 2));
+        
+        // Try different ways to extract the hash
+        let txHash = null;
+        if (typeof responseData === 'string') {
+          txHash = responseData;
+        } else if (responseData.hash) {
+          txHash = responseData.hash;
+        } else if (responseData.transaction_id) {
+          txHash = responseData.transaction_id;
+        } else if (responseData.txHash) {
+          txHash = responseData.txHash;
+        } else {
+          console.error('❌ Could not find transaction hash in response:', responseData);
+          txHash = 'unknown';
+        }
+        
         const explorerUrl = `https://celoscan.io/tx/${txHash}`;
         
-        console.log(`✅ CELO sent! TX: ${txHash}`);
+        console.log(`✅ CELO sent! TX Hash: ${txHash}`);
         
         return {
           success: true,
-          txHash,
+          txHash: txHash.toString(), // Ensure it's a string
           explorerUrl,
           gasUsed: '21000', // Standard gas for simple transfer
           blockNumber: 'Pending'

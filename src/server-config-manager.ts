@@ -349,48 +349,11 @@ class ServerConfigManager {
       
       console.log(`🔄 Updating channel permissions for ${member.user.username} from ${country}`);
 
-      // Country-specific channel mapping (Hackathon Demo - 3 channels only)
-      const countryChannels: { [key: string]: string[] } = {
-        'IND': ['india-channel'], // India
-        'JPN': ['japan-channel'], // Japan
-        'THA': ['thailand-channel'] // Thailand
-      };
-
-      const allowedChannelNames = countryChannels[country];
-      if (!allowedChannelNames) {
-        console.log(`⚠️ No specific channels defined for country: ${country}`);
-        return;
-      }
-
-      // Find channels by name and grant permissions
-      for (const channelName of allowedChannelNames) {
-        const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
-        
-        if (channel && channel.isTextBased()) {
-          try {
-            // Grant permissions to send messages in country-specific channel
-            await channel.permissionOverwrites.create(member, {
-              SendMessages: true,
-              ViewChannel: true,
-              ReadMessageHistory: true,
-              AddReactions: true,
-              UseExternalEmojis: true
-            });
-
-            console.log(`✅ Granted ${member.user.username} access to #${channelName}`);
-          } catch (permError) {
-            console.error(`❌ Failed to update permissions for #${channelName}:`, permError);
-          }
-        } else {
-          console.log(`⚠️ Channel #${channelName} not found in server`);
-        }
-      }
-
       // Create and assign all verification roles
       await this.createAndAssignVerificationRoles(guild, member, country);
 
-      // Set channel permissions - only country members can chat in their channel
-      await this.setCountryChannelPermissions(guild, member, country);
+      // Set channel permissions for both country-specific and cross-channels
+      await this.setAllChannelPermissions(guild, member, country);
 
     } catch (error) {
       console.error(`❌ Error updating channel permissions for ${userId}:`, error);
@@ -475,23 +438,30 @@ class ServerConfigManager {
     }
   }
 
-  // Set country-specific channel permissions
-  async setCountryChannelPermissions(guild: any, member: any, country: string): Promise<void> {
+  // Set permissions for both country-specific and cross-channels
+  async setAllChannelPermissions(guild: any, member: any, country: string): Promise<void> {
     try {
-      // Map country codes to their specific channels (Hackathon Demo - 3 channels only)
+      // Country-specific channels - only accessible to users from that country
       const countryToChannelMap: { [key: string]: string } = {
         'IND': 'india-channel',
-        'JPN': 'japan-channel',
+        'JPN': 'japan-channel', 
+        'CHN': 'china-channel',
         'THA': 'thailand-channel'
       };
 
-      const userCountryChannel = countryToChannelMap[country];
-      
-      // Find all country channels (Hackathon Demo - 3 channels only)
-      const allCountryChannels = [
-        'india-channel', 'japan-channel', 'thailand-channel'
+      // Cross-channels - accessible to ALL verified users regardless of country
+      const crossChannels = [
+        'cross-thailand',
+        'cross-china', 
+        'cross-japan',
+        'cross-india',
+        'cross-general'
       ];
 
+      const userCountryChannel = countryToChannelMap[country];
+      const allCountryChannels = Object.values(countryToChannelMap);
+
+      // 1. Handle country-specific channels
       for (const channelName of allCountryChannels) {
         const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
         
@@ -517,6 +487,23 @@ class ServerConfigManager {
             });
             console.log(`✅ BLOCKED ${member.user.username} from seeing #${channelName} (not their country)`);
           }
+        }
+      }
+
+      // 2. Handle cross-channels - ALL verified users get access
+      for (const channelName of crossChannels) {
+        const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
+        
+        if (channel && channel.isTextBased()) {
+          // Grant FULL ACCESS to ALL cross-channels for verified users
+          await channel.permissionOverwrites.create(member, {
+            SendMessages: true,
+            ViewChannel: true,
+            ReadMessageHistory: true,
+            AddReactions: true,
+            UseExternalEmojis: true
+          });
+          console.log(`✅ Granted ${member.user.username} access to cross-channel #${channelName}`);
         }
       }
 
@@ -632,7 +619,7 @@ class ServerConfigManager {
             const userVerification = await this.getUserVerification(memberId, guildId);
             
             if (userVerification && userVerification.verified && userVerification.selectedCountry) {
-              await this.setCountryChannelPermissions(guild, member, userVerification.selectedCountry);
+              await this.setAllChannelPermissions(guild, member, userVerification.selectedCountry);
             }
           }
         }
@@ -663,7 +650,7 @@ class ServerConfigManager {
     }
   }
 
-  // Emergency lockdown - immediately hide all country channels from everyone, then re-grant access only to verified users
+  // Emergency lockdown - immediately hide all channels from everyone, then re-grant access only to verified users
   async emergencyChannelLockdown(guildId: string): Promise<void> {
     if (!this.discordClient) {
       console.error('❌ Discord client not set');
@@ -672,14 +659,23 @@ class ServerConfigManager {
 
     try {
       const guild = await this.discordClient.guilds.fetch(guildId);
+      
+      // Country-specific channels (gated by country)
       const allCountryChannels = [
-        'india-channel', 'japan-channel', 'thailand-channel'
+        'india-channel', 'japan-channel', 'china-channel', 'thailand-channel'
       ];
 
-      console.log('🚨 EMERGENCY LOCKDOWN: Hiding all country channels from everyone...');
+      // Cross-channels (accessible to all verified users)
+      const allCrossChannels = [
+        'cross-thailand', 'cross-china', 'cross-japan', 'cross-india', 'cross-general'
+      ];
 
-      // Step 1: Hide ALL country channels from @everyone
-      for (const channelName of allCountryChannels) {
+      const allChannelsToLockdown = [...allCountryChannels, ...allCrossChannels];
+
+      console.log('🚨 EMERGENCY LOCKDOWN: Hiding all channels from everyone...');
+
+      // Step 1: Hide ALL channels from @everyone
+      for (const channelName of allChannelsToLockdown) {
         const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
         
         if (channel && channel.isTextBased()) {
@@ -698,7 +694,7 @@ class ServerConfigManager {
             CreatePublicThreads: false,
             CreatePrivateThreads: false,
             SendMessagesInThreads: false
-          }, 'EMERGENCY LOCKDOWN: Deny all access to country channels');
+          }, 'EMERGENCY LOCKDOWN: Deny all access to channels');
           
           // Clear all user-specific permission overwrites (start fresh)
           const overwrites = channel.permissionOverwrites.cache.filter((overwrite: any) => overwrite.type === 1); // Type 1 = Member
@@ -722,13 +718,13 @@ class ServerConfigManager {
         
         if (userVerification && userVerification.verified && userVerification.onChainVerified && userVerification.selectedCountry) {
           console.log(`✅ Re-granting access to verified user: ${member.user.username} (${userVerification.selectedCountry})`);
-          await this.setCountryChannelPermissions(guild, member, userVerification.selectedCountry);
+          await this.setAllChannelPermissions(guild, member, userVerification.selectedCountry);
         } else {
           console.log(`❌ Skipping unverified user: ${member.user.username}`);
         }
       }
 
-      console.log('🔒 EMERGENCY LOCKDOWN COMPLETE: Only verified users can see their country channels');
+      console.log('🔒 EMERGENCY LOCKDOWN COMPLETE: Only verified users can see channels (country-specific + cross-channels)');
       
     } catch (error) {
       console.error('❌ Error during emergency lockdown:', error);
