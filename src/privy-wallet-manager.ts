@@ -253,6 +253,7 @@ export class PrivyWalletManager {
       const response = await axios.post(
         `${this.baseUrl}/v1/wallets/${walletId}/rpc`,
         {
+
           method: 'eth_exportPrivateKey',
           params: {}
         },
@@ -267,6 +268,132 @@ export class PrivyWalletManager {
     } catch (error) {
       console.error('Error getting private key:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get CELO balance for a wallet
+   */
+  async getCeloBalance(walletId: string, chainId: string = '42220'): Promise<{
+    balance: string;
+    error?: string;
+  }> {
+    try {
+      // Use the correct Privy API format for balance
+      const response = await axios.post(
+        `${this.baseUrl}/v1/wallets/${walletId}/rpc`,
+        {
+          method: 'getBalance',
+          caip2: `eip155:${chainId}`, // Celo mainnet
+          currency: 'CELO'
+        },
+        { headers: this.getAuthHeaders() }
+      );
+
+      if (response.data && response.data.data) {
+        const balance = response.data.data.balance || response.data.data;
+        return { balance: balance.toString() };
+      }
+
+      // Fallback: Use external Celo RPC
+      console.log('⚠️  Privy balance failed, using external RPC...');
+      const wallet = await this.getWallet(walletId);
+      if (wallet) {
+        const celoRpc = 'https://forno.celo.org';
+        const balanceResponse = await axios.post(celoRpc, {
+          jsonrpc: '2.0',
+          method: 'eth_getBalance',
+          params: [wallet.address, 'latest'],
+          id: 1
+        });
+
+        if (balanceResponse.data && balanceResponse.data.result) {
+          const balanceWei = balanceResponse.data.result;
+          const balanceCelo = (parseInt(balanceWei, 16) / Math.pow(10, 18)).toFixed(6);
+          return { balance: balanceCelo };
+        }
+      }
+
+      return { balance: '0', error: 'Could not get balance' };
+    } catch (error) {
+      console.error('Error getting CELO balance:', error);
+      return { balance: '0', error: error.response?.data?.error || error.message || 'Unknown error' };
+    }
+  }
+
+  /**
+   * Send CELO tokens to an address
+   */
+  async sendCeloTokens(
+    walletId: string, 
+    recipientAddress: string, 
+    amountCelo: string, 
+    chainId: string = '42220'
+  ): Promise<{
+    success: boolean;
+    txHash?: string;
+    explorerUrl?: string;
+    gasUsed?: string;
+    blockNumber?: string;
+    error?: string;
+  }> {
+    try {
+      console.log(`💸 Sending ${amountCelo} CELO from wallet ${walletId} to ${recipientAddress}`);
+
+      // Get wallet details first
+      const wallet = await this.getWallet(walletId);
+      if (!wallet) {
+        return { success: false, error: 'Wallet not found' };
+      }
+
+      // Convert CELO to Wei (18 decimals)
+      const amountWei = BigInt(Math.floor(parseFloat(amountCelo) * Math.pow(10, 18)));
+      const amountWeiHex = '0x' + amountWei.toString(16);
+
+      console.log(`💰 Sending ${amountCelo} CELO (${amountWeiHex} Wei) to ${recipientAddress}`);
+
+      // Use the correct Privy API format for eth_sendTransaction
+      const response = await axios.post(
+        `${this.baseUrl}/v1/wallets/${walletId}/rpc`,
+        {
+          method: 'eth_sendTransaction',
+          caip2: `eip155:${chainId}`, // Celo mainnet
+          params: {
+            transaction: {
+              to: recipientAddress,
+              value: amountWeiHex
+            }
+          }
+        },
+        { headers: this.getAuthHeaders() }
+      );
+
+      if (response.data && response.data.data) {
+        const txHash = response.data.data;
+        const explorerUrl = `https://celoscan.io/tx/${txHash}`;
+        
+        console.log(`✅ CELO sent! TX: ${txHash}`);
+        
+        return {
+          success: true,
+          txHash,
+          explorerUrl,
+          gasUsed: '21000', // Standard gas for simple transfer
+          blockNumber: 'Pending'
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Transaction failed - no data returned'
+      };
+
+    } catch (error) {
+      console.error('Error sending CELO tokens:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Unknown error'
+      };
     }
   }
 }

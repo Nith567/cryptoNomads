@@ -145,25 +145,22 @@ export class CeloPaymentManager {
   }
 
   /**
-   * Send CELO from user's wallet (this would require the user's private key or signature)
-   * For now, we'll use the server wallet but in production you'd want user signatures
+   * Send CELO from user's individual wallet to another address
    */
-  async sendCELOFromUserWallet(fromAddress: string, toAddress: string, amountInCELO: string): Promise<{
+  async sendCELOFromUserWallet(senderWalletId: string, toAddress: string, amountInCELO: string): Promise<{
     success: boolean;
     txHash?: string;
     error?: string;
   }> {
     try {
-      // For now, we'll use the server wallet to send on behalf of the user
-      // In production, this should be replaced with user wallet signatures
-      console.log(`💸 Sending ${amountInCELO} CELO from ${fromAddress} to ${toAddress} (via server wallet)`);
-      
+      console.log(`💸 Sending ${amountInCELO} CELO from user wallet ${senderWalletId} to ${toAddress}`);
+
       // Convert CELO amount to Wei (18 decimals)
       const amountInWei = ethers.parseEther(amountInCELO);
 
-      // Use server wallet to send (in production, use user's wallet with signature)
+      // Use Privy to send the transaction from user's wallet
       const transactionResult = await privyWalletManager.sendTransaction(
-        this.serverWalletId,
+        senderWalletId,
         {
           to: toAddress,
           value: amountInWei.toString(),
@@ -173,7 +170,7 @@ export class CeloPaymentManager {
       );
 
       if (transactionResult && transactionResult.data.hash) {
-        console.log(`✅ CELO sent! TX Hash: ${transactionResult.data.hash}`);
+        console.log(`✅ CELO sent from user wallet! TX Hash: ${transactionResult.data.hash}`);
         return {
           success: true,
           txHash: transactionResult.data.hash
@@ -187,6 +184,43 @@ export class CeloPaymentManager {
 
     } catch (error) {
       console.error('❌ Error sending CELO from user wallet:', error);
+      return {
+        success: false,
+        error: error.message || 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Send CELO from user's wallet to another user by ENS name
+   */
+  async sendCELOFromUserWalletByENS(senderWalletId: string, ensName: string, amountInCELO: string): Promise<{
+    success: boolean;
+    txHash?: string;
+    resolvedAddress?: string;
+    error?: string;
+  }> {
+    try {
+      // First resolve the ENS name via API
+      const resolvedAddress = await this.resolveENSToAddress(ensName);
+      
+      if (!resolvedAddress) {
+        return {
+          success: false,
+          error: `Could not resolve ENS name: ${ensName}`
+        };
+      }
+
+      // Send CELO from user's wallet to the resolved address
+      const result = await this.sendCELOFromUserWallet(senderWalletId, resolvedAddress, amountInCELO);
+      
+      return {
+        ...result,
+        resolvedAddress
+      };
+
+    } catch (error) {
+      console.error('❌ Error sending CELO from user wallet by ENS:', error);
       return {
         success: false,
         error: error.message || 'Unknown error'

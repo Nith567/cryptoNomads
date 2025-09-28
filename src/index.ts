@@ -19,14 +19,14 @@ import {
   executeSetupChannels,
   userDetailsCommand,
   executeUserDetails,
-  resetPermissionsCommand,
-  executeResetPermissions,
   sendCommand,
   executeSend,
   dmPrivateKeyCommand,
   executeDMPrivateKey,
   emergencyLockdownCommand,
-  executeEmergencyLockdown
+  executeEmergencyLockdown,
+  depositCommand,
+  executeDeposit
 } from "./commands/index.js";
 import { handleVerificationInteractions } from "./verification-handlers.js";
 import { serverConfigManager } from "./server-config-manager.js";
@@ -76,10 +76,10 @@ client.once(Events.ClientReady, async (discord) => {
         checkStatusCommand,
         setupChannelsCommand,
         userDetailsCommand,
-        resetPermissionsCommand,
         sendCommand,
         dmPrivateKeyCommand,
-        emergencyLockdownCommand
+        emergencyLockdownCommand,
+        depositCommand
       ],
     });
 
@@ -94,6 +94,7 @@ client.once(Events.ClientReady, async (discord) => {
     console.log('   /send - Send CELO tokens by Discord username (All verified users)');
     console.log('   /dm-private-key - Get your wallet private key via DM (All users)');
     console.log('   /emergency-lockdown - 🚨 Lock down all channels and re-grant access (Admin only)');
+    console.log('   /deposit - Get your wallet address to receive funds (All users)');
 
     // Set Discord client for server config manager
     serverConfigManager.setDiscordClient(client);
@@ -121,17 +122,17 @@ client.once(Events.ClientReady, async (discord) => {
           await executeSetupChannels(interaction);
         } else if (commandName === 'details') {
           await executeUserDetails(interaction);
-        } else if (commandName === 'reset-permissions') {
-          await executeResetPermissions(interaction);
         } else if (commandName === 'send') {
           await executeSend(interaction);
         } else if (commandName === 'dm-private-key') {
           await executeDMPrivateKey(interaction);
         } else if (commandName === 'emergency-lockdown') {
           await executeEmergencyLockdown(interaction);
+        } else if (commandName === 'deposit') {
+          await executeDeposit(interaction);
         } else {
           await interaction.reply({ 
-            content: '❌ Unknown command. Available commands: `/verify`, `/verify-status`, `/check-status`, `/setup-channels`, `/details`, `/reset-permissions`, `/send`, `/dm-private-key`, `/emergency-lockdown`', 
+            content: '❌ Unknown command. Available commands: `/verify`, `/verify-status`, `/check-status`, `/setup-channels`, `/details`, `/reset-permissions`, `/send`, `/dm-private-key`, `/emergency-lockdown`, `/deposit`', 
             ephemeral: true 
           });
         }
@@ -302,6 +303,5 @@ console.log('   1. User joins Discord → Can\'t access channels');
 console.log('   2. User runs /verify → Creates Privy wallet + UUID');
 console.log('   3. User gets redirected → localhost:3001/verification/{uuid}');
 console.log('   4. NextJS queries MongoDB by UUID → Gets Discord info + wallet');
-console.log('   5. User verifies with Self Protocol → Updates MongoDB via API');
 console.log('   6. Bot adds Discord roles → Channel access granted');
 console.log('   7. ENS name minted: username.0xcryptonomads.eth');

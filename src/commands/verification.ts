@@ -15,6 +15,7 @@ import { privyWalletManager } from '../privy-wallet-manager.js';
 import { selfProtocolManager } from '../self-protocol-manager.js';
 import { ethers } from 'ethers';
 import { celoPaymentManager } from '../celo-payment-manager.js';
+import { databaseManager } from '../database-manager.js';
 
 
 
@@ -45,7 +46,7 @@ export async function executeCryptoNomadsVerify(interaction: CommandInteraction)
     
     if (userVerification?.verified && userVerification?.onChainVerified) {
       await interaction.editReply({ 
-        content: '✅ You are already verified! Use `/verify-status` to check your verification status.'
+        content: '✅ You are already verified! Use `/check-status` to check your verification status.'
       });
       return;
     }
@@ -271,7 +272,7 @@ console.log(contractData);
                            contractData.gender || 'Not specified';
 
       // Get country name from nationality code
-      const countryDisplay = getCountryFromCode(contractData.nationality) || contractData.nationality || 'Not specified';
+      const countryDisplay = serverConfigManager.getCountryName(contractData.nationality) || contractData.nationality || 'Not specified';
 
       // Update database with real verification data
       const updateData = {
@@ -298,7 +299,8 @@ console.log(contractData);
       await serverConfigManager.updateChannelPermissions(userId, interaction.guild.id, contractData.nationality);
 
       // Update user's Discord profile with verified information
-      await updateUserDiscordProfile(interaction, contractData, ensName, countryDisplay);
+      // Profile updated - user has been verified and roles assigned
+      console.log(`✅ User ${interaction.user.username} verified successfully with country: ${countryDisplay}`);
 
       // Generate profile bio suggestion
       const genderText = contractData.gender === 'M' ? 'Male' : 
@@ -321,7 +323,7 @@ console.log(contractData);
           { name: '⚧️ Gender', value: genderDisplay, inline: true },
           { name: '🔞 Age Status', value: contractData.isAdult ? '✅ Adult (18+)' : '❌ Under 18', inline: true },
           { name: '📱 Wallet Address', value: `\`${contractData.walletAddress.slice(0, 3)}...${contractData.walletAddress.slice(-4)}\``, inline: true },
-          { name: '🏷️ ENS Name', value: `[\`${ensName}\`](http://localhost:3000/resolve/${ensName})`, inline: true },
+          { name: '🏷️ ENS Name', value: `[\`${ensName}\`](https://ens-resolver-address.onrender.com/resolve/${ensName})`, inline: true },
           { name: '⛓️ Blockchain', value: 'Celo Mainnet', inline: true },
          
         )
@@ -485,7 +487,7 @@ export async function executeUserDetails(interaction: CommandInteraction) {
         { name: '⚧️ Gender', value: genderDisplay, inline: true },
         { name: '🔞 Age Status', value: userVerification.isAdult ? '✅ Adult (18+)' : '❌ Under 18', inline: true },
         { name: '📱 Wallet Address', value: userVerification.walletAddress ? `\`${userVerification.walletAddress.slice(0, 6)}...${userVerification.walletAddress.slice(-4)}\`` : 'Not available', inline: true },
-        { name: '🏷️ ENS Name', value: userVerification.ensName ? `[\`${userVerification.ensName}\`](http://localhost:3001/resolve/${userVerification.ensName})` : 'Not minted', inline: true }
+        { name: '🏷️ ENS Name', value: userVerification.ensName ? `[\`${userVerification.ensName}\`](https://ens-resolver-address.onrender.com/resolve/${userVerification.ensName})` : 'Not minted', inline: true }
       )
       .addFields(
         { name: '✅ Verification Status', value: `On-Chain: ${userVerification.onChainVerified ? '✅' : '❌'}`, inline: true },
@@ -503,116 +505,75 @@ export async function executeUserDetails(interaction: CommandInteraction) {
   }
 }
 
-// Helper function to convert country codes to readable names
-function getCountryFromCode(code: string): string | null {
-  const countryCodes: { [key: string]: string } = {
-    'IND': 'India',
-    'USA': 'United States',
-    'GBR': 'United Kingdom',
-    'CAN': 'Canada',
-    'AUS': 'Australia',
-    'DEU': 'Germany',
-    'FRA': 'France',
-    'JPN': 'Japan',
-    'KOR': 'South Korea',
-    'CHN': 'China',
-    'BRA': 'Brazil',
-    'MEX': 'Mexico',
-    'RUS': 'Russia',
-    'ITA': 'Italy',
-    'ESP': 'Spain',
-    'NLD': 'Netherlands',
-    'CHE': 'Switzerland',
-    'SWE': 'Sweden',
-    'NOR': 'Norway',
-    'DNK': 'Denmark',
-    'FIN': 'Finland',
-    'SGP': 'Singapore',
-    'ARE': 'United Arab Emirates'
-  };
-  
-  return countryCodes[code] || null;
-}
+// Deposit command - show user's wallet address for receiving funds
+export const depositCommand = new SlashCommandBuilder()
+  .setName('deposit')
+  .setDescription('Get your wallet address to receive CELO and other tokens');
 
-// Helper function to update Discord user profile with verified information
-async function updateUserDiscordProfile(interaction: CommandInteraction, contractData: any, ensName: string, countryDisplay: string) {
-  try {
-    if (!interaction.guild) return;
-    
-    const guild = interaction.guild;
-    const member = await guild.members.fetch(interaction.user.id);
-    
-    // Create profile bio with verified information
-    const genderText = contractData.gender === 'M' ? 'Male' : 
-                      contractData.gender === 'F' ? 'Female' : 
-                      contractData.gender === 'T' ? 'Transgender' : 'Not specified';
-    
-    const profileBio = `✅ Verified CryptoNomad
-🌍 Country: ${countryDisplay}
-⚧️ Gender: ${genderText}
-🔞 Age: ${contractData.isAdult ? '18+' : 'Under 18'}
-🏷️ ENS: ${ensName}
-📱 Wallet: ${contractData.walletAddress.slice(0, 6)}...${contractData.walletAddress.slice(-4)}`;
-
-    // Try to update the user's nickname to include their country flag
-    const countryFlag = serverConfigManager.getCountryFlag(contractData.nationality);
-    const newNickname = `${countryFlag} ${interaction.user.username}`;
-    
-    try {
-      // Update nickname with country flag
-      await member.setNickname(newNickname, 'Verified country from Self Protocol');
-      console.log(`✅ Updated ${interaction.user.username}'s nickname to: ${newNickname}`);
-      
-      // Note: Discord doesn't allow bots to update user bios directly
-      // But we can suggest the user to update it themselves
-      
-    } catch (nicknameError) {
-      console.log(`⚠️ Could not update nickname for ${interaction.user.username}:`, nicknameError.message);
-    }
-    
-    console.log(`✅ Profile update attempted for ${interaction.user.username}`);
-    
-  } catch (error) {
-    console.error('❌ Error updating Discord profile:', error);
-  }
-}
-
-// Reset channel permissions command (admin only)
-export const resetPermissionsCommand = new SlashCommandBuilder()
-  .setName('reset-permissions')
-  .setDescription('Reset all channel permissions and re-apply based on verifications (Admin only)')
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
-
-export async function executeResetPermissions(interaction: CommandInteraction) {
+export async function executeDeposit(interaction: CommandInteraction) {
   if (!interaction.guild) {
     await interaction.reply({ content: '❌ This command can only be used in a server!', ephemeral: true });
-    return;
-  }
-
-  // Check if user has admin permissions
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-    await interaction.reply({ 
-      content: '❌ You need Administrator permissions to use this command!', 
-      ephemeral: true 
-    });
     return;
   }
 
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    await serverConfigManager.resetAllChannelPermissions(interaction.guild.id);
+    const userId = interaction.user.id;
+    const guildId = interaction.guild.id;
+
+    // Get user verification data
+    const userVerification = await serverConfigManager.getUserVerification(userId, guildId);
     
-    await interaction.editReply({ 
-      content: '✅ **Channel permissions reset complete!**\n\n' +
-               '🔄 All user-specific channel permissions have been cleared and re-applied based on current verifications.\n' +
-               '🛡️ Only verified users can now see their country channels.'
-    });
-    
+    if (!userVerification || !userVerification.walletAddress) {
+      await interaction.editReply({ 
+        content: '❌ **Wallet not found!**\n\n' +
+                '💡 You need to run `/verify` first to create your wallet and complete verification.\n' +
+                'After verification, you\'ll have a wallet address to receive funds.'
+      });
+      return;
+    }
+
+    const walletAddress = userVerification.walletAddress;
+    const ensName = userVerification.ensName || `${interaction.user.username}.0xcryptonomads.eth`;
+    const isVerified = userVerification.verified && userVerification.onChainVerified;
+
+    const embed = new EmbedBuilder()
+      .setColor(isVerified ? 0x00FF00 : 0xFFA500)
+      .setTitle('💰 Your Deposit Address')
+      .setThumbnail(interaction.user.displayAvatarURL())
+      .addFields(
+        { name: '📍 Wallet Address', value: `\`${walletAddress}\``, inline: false },
+        { name: '🏷️ ENS Name', value: ensName, inline: true },
+        { name: '⛓️ Networks', value: 'Celo Mainnet\nCelo Testnet (Alfajores)', inline: true },
+        { name: '💎 Supported Tokens', value: 'CELO (Native)\nUSDC, USDT\nAll ERC-20 tokens', inline: true }
+      )
+      .addFields(
+        { name: '🔗 Useful Links', value: 
+          `[View on Celoscan](https://celoscan.io/address/${walletAddress})\n` +
+          `[Add CELO to MetaMask](https://docs.celo.org/wallet/metamask/setup)\n` +
+          `[Celo Bridge](https://bridge.celo.org/)`, inline: false 
+        },
+        { name: '⚠️ Important Notes', value: 
+          '• Only send tokens on **Celo network**\n' +
+          '• Double-check the address before sending\n' +
+          '• This is your **non-custodial wallet**\n' +
+          (isVerified ? '• ✅ Wallet is verified and active' : '• ⚠️ Complete verification to unlock all features'), 
+          inline: false 
+        }
+      )
+      .setFooter({ text: 'CryptoNomads Wallet • Powered by Privy' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+    // Log the deposit address request
+    console.log(`💰 ${interaction.user.username} requested deposit address: ${walletAddress}`);
+
   } catch (error) {
-    console.error('❌ Error resetting permissions:', error);
+    console.error('❌ Error executing deposit command:', error);
     await interaction.editReply({ 
-      content: '❌ Failed to reset channel permissions. Please check the bot logs for details.' 
+      content: '❌ An error occurred while retrieving your wallet address. Please try again later.' 
     });
   }
 }
@@ -620,10 +581,10 @@ export async function executeResetPermissions(interaction: CommandInteraction) {
 // Send CELO command (available to all verified users)
 export const sendCommand = new SlashCommandBuilder()
   .setName('send')
-  .setDescription('Send CELO tokens to a user by their Discord username')
-  .addStringOption(option =>
+  .setDescription('Send CELO tokens to a user by tagging them')
+  .addUserOption(option =>
     option.setName('recipient')
-      .setDescription('Discord username of the recipient (e.g., nithin_3)')
+      .setDescription('Tag the Discord user to send CELO to (e.g., @Nithin-Varma)')
       .setRequired(true)
   )
   .addNumberOption(option =>
@@ -643,12 +604,12 @@ export async function executeSend(interaction: CommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    const recipient = interaction.options.get('recipient')?.value as string;
+    const recipientUser = interaction.options.get('recipient')?.user;
     const amount = interaction.options.get('amount')?.value as number;
 
-    if (!recipient || !amount) {
+    if (!recipientUser || !amount) {
       await interaction.editReply({ 
-        content: '❌ Invalid parameters. Please provide both recipient username and amount.' 
+        content: '❌ Invalid parameters. Please tag a user and provide an amount.' 
       });
       return;
     }
@@ -662,13 +623,106 @@ export async function executeSend(interaction: CommandInteraction) {
       return;
     }
 
-    console.log(`💸 ${interaction.user.username} sending ${amount} CELO to ${recipient}`);
+    // Check if recipient is verified
+    const recipientVerification = await serverConfigManager.getUserVerification(recipientUser.id, interaction.guild.id);
+    if (!recipientVerification || !recipientVerification.verified) {
+      await interaction.editReply({ 
+        content: `❌ ${recipientUser.username} is not verified yet! They need to use \`/verify\` first.` 
+      });
+      return;
+    }
 
-    // Convert recipient to ENS format
-    const ensName = `${recipient}.0xcryptonomads.eth`;
+    console.log(`💸 ${interaction.user.username} sending ${amount} CELO to ${recipientUser.username}`);
+    console.log(`🔍 Sender Discord ID: ${interaction.user.id}`);
+    console.log(`🔍 Recipient Discord ID: ${recipientUser.id}`);
 
-    // Send CELO by ENS name
-    const result = await celoPaymentManager.sendCELOByENS(ensName, amount.toString());
+    // Convert recipient username to ENS format
+    const ensName = `${recipientUser.username}.0xcryptonomads.eth`;
+    console.log(`🏷️ Target ENS name: ${ensName}`);
+
+    // Get sender's wallet ID from database mapping
+    console.log(`🔍 Looking up sender's wallet mapping for Discord ID: ${interaction.user.id}`);
+    const senderWalletMapping = await databaseManager.getUserMapping(interaction.user.id);
+    console.log(`📋 Sender wallet mapping result:`, senderWalletMapping);
+    
+    if (!senderWalletMapping || !senderWalletMapping.privyWalletId) {
+      console.log(`❌ Sender wallet mapping failed! User: ${interaction.user.username} (${interaction.user.id})`);
+      console.log(`📊 Debug - senderWalletMapping:`, senderWalletMapping);
+      console.log(`📊 Debug - privyWalletId:`, senderWalletMapping?.privyWalletId);
+      
+      await interaction.editReply({ 
+        content: `❌ **Your wallet is not properly configured!**\n\n` +
+                `💡 **Debug Info:**\n` +
+                `• Your Discord ID: \`${interaction.user.id}\`\n` +
+                `• Wallet mapping found: ${senderWalletMapping ? '✅' : '❌'}\n` +
+                `• Privy wallet ID: ${senderWalletMapping?.privyWalletId || 'Not found'}\n\n` +
+                `Please use \`/debug-wallet\` to check your wallet status.`
+      });
+      return;
+    }
+    
+    console.log(`✅ Sender wallet mapping found! Privy ID: ${senderWalletMapping.privyWalletId}`);
+
+    // Get recipient's wallet mapping from database  
+    console.log(`🔍 Looking up recipient's wallet mapping for Discord ID: ${recipientUser.id}`);
+    const recipientWalletMapping = await databaseManager.getUserMapping(recipientUser.id);
+    console.log(`📋 Recipient wallet mapping result:`, recipientWalletMapping);
+    
+    if (!recipientWalletMapping || !recipientWalletMapping.privyWalletId) {
+      console.log(`❌ Recipient wallet mapping failed! User: ${recipientUser.username} (${recipientUser.id})`);
+      await interaction.editReply({ 
+        content: `❌ **${recipientUser.username}'s wallet is not properly configured!**\n\n` +
+                `💡 They need to complete verification first with \`/verify\`.`
+      });
+      return;
+    }
+    
+    // Get recipient's wallet address directly from Privy
+    console.log(`🔍 Getting recipient wallet details from Privy...`);
+    const recipientWallet = await privyWalletManager.getWallet(recipientWalletMapping.privyWalletId);
+    console.log(`📋 Recipient wallet details:`, recipientWallet);
+    
+    if (!recipientWallet || !recipientWallet.address) {
+      console.log(`❌ Could not get recipient wallet address from Privy`);
+      await interaction.editReply({ 
+        content: `❌ **Could not find ${recipientUser.username}'s wallet address!**\n\n` +
+                `💡 They may need to re-verify with \`/verify\`.`
+      });
+      return;
+    }
+    
+    const recipientAddress = recipientWallet.address;
+    console.log(`✅ Recipient address found: ${recipientAddress}`);
+
+    // Check sender's CELO balance first
+    console.log('1️⃣ Checking sender CELO balance...');
+    const balance = await privyWalletManager.getCeloBalance(senderWalletMapping.privyWalletId, '42220');
+    
+    if (balance.error) {
+      await interaction.editReply({ 
+        content: `❌ Could not check your CELO balance: ${balance.error}` 
+      });
+      return;
+    }
+
+    console.log(`💼 Sender balance: ${balance.balance} CELO`);
+
+    // Verify sufficient balance
+    if (parseFloat(balance.balance) < amount) {
+      await interaction.editReply({ 
+        content: `❌ Insufficient CELO balance!\n\n💼 Your balance: **${balance.balance} CELO**\n💸 Amount needed: **${amount} CELO**\n\n💡 Use \`/deposit\` to get your wallet address and add funds.` 
+      });
+      return;
+    }
+
+    // Send CELO using Privy wallet manager
+    console.log('2️⃣ Sending CELO tokens...');
+    const result = await privyWalletManager.sendCeloTokens(
+      senderWalletMapping.privyWalletId,
+      recipientAddress,
+      amount.toString(),
+      '42220' // Celo Mainnet
+    );
 
     if (result.success && result.txHash) {
       const embed = new EmbedBuilder()
@@ -676,11 +730,13 @@ export async function executeSend(interaction: CommandInteraction) {
         .setTitle('💸 CELO Payment Sent!')
         .addFields(
           { name: '👤 From', value: `${serverConfigManager.getCountryFlag(senderVerification.selectedCountry || '')} ${interaction.user.username}`, inline: true },
-          { name: '👤 To', value: recipient, inline: true },
+          { name: '👤 To', value: `${serverConfigManager.getCountryFlag(recipientVerification.selectedCountry || '')} ${recipientUser.username}`, inline: true },
           { name: '💰 Amount', value: `${amount} CELO`, inline: true },
-          { name: '📍 Recipient Address', value: result.resolvedAddress ? `\`${result.resolvedAddress.slice(0, 6)}...${result.resolvedAddress.slice(-4)}\`` : 'Unknown', inline: true },
+          { name: '📍 Recipient Address', value: `\`${recipientAddress.slice(0, 6)}...${recipientAddress.slice(-4)}\``, inline: true },
           { name: '🏷️ ENS Name', value: ensName, inline: true },
-          { name: '🔗 Transaction', value: `[View on Celo Blockscout](http://celo.blockscout.com/tx/${result.txHash})`, inline: false }
+          { name: '🔗 Transaction', value: `[View on Celoscan](${result.explorerUrl})`, inline: false },
+          { name: '⛽ Gas Used', value: result.gasUsed || '21000', inline: true },
+          { name: '📊 Block', value: result.blockNumber || 'Pending', inline: true }
         )
         .setFooter({ text: 'CryptoNomads P2P Payment • Celo Network' })
         .setTimestamp();
@@ -688,11 +744,11 @@ export async function executeSend(interaction: CommandInteraction) {
       await interaction.editReply({ embeds: [embed] });
 
       // Log the payment
-      console.log(`✅ Payment sent: ${amount} CELO from ${interaction.user.username} to ${recipient} (${result.resolvedAddress}) - TX: ${result.txHash}`);
+      console.log(`✅ Payment sent: ${amount} CELO from ${interaction.user.username} to ${recipientUser.username} (${recipientAddress}) - TX: ${result.txHash}`);
 
     } else {
       await interaction.editReply({ 
-        content: `❌ Payment failed: ${result.error || 'Unknown error'}\n\n💡 Make sure the recipient username is correct and they are verified.` 
+        content: `❌ Payment failed: ${result.error || 'Unknown error'}\n\n💡 Make sure you have enough CELO balance and the recipient is verified.` 
       });
     }
 
@@ -730,19 +786,37 @@ export async function executeDMPrivateKey(interaction: CommandInteraction) {
       return;
     }
 
-    console.log(`🔐 ${interaction.user.username} requested their private key`);
+    console.log(`🔐 ${interaction.user.username} (ID: ${userId}) requested their private key`);
 
-    // Get user's Privy wallet by Discord ID
-    const userWallet = await privyWalletManager.getWalletByDiscordId(userId);
-    if (!userWallet) {
-      await interaction.editReply({ 
-        content: '❌ No wallet found for your account. Please contact support.' 
-      });
+    // Get user's wallet mapping from database
+    console.log(`🔍 Looking for wallet mapping for Discord ID: ${userId}`);
+    const userWalletMapping = await databaseManager.getUserMapping(userId);
+    console.log(`📋 Wallet mapping result:`, userWalletMapping);
+    
+    if (!userWalletMapping || !userWalletMapping.privyWalletId) {
+      console.log(`❌ No wallet mapping found for user ${interaction.user.username} (${userId})`);
+      
+      // Try to get wallet address from verification record instead
+      const walletAddress = userVerification.walletAddress;
+      if (walletAddress) {
+        await interaction.editReply({ 
+          content: `❌ **Wallet mapping not found in database!**\n\n` +
+                  `💡 **Debug Info:**\n` +
+                  `• Your wallet address: \`${walletAddress}\`\n` +
+                  `• Your Discord ID: \`${userId}\`\n` +
+                  `• Verification status: ${userVerification.verified ? '✅' : '❌'}\n\n` +
+                  `Please contact support with this info.`
+        });
+      } else {
+        await interaction.editReply({ 
+          content: '❌ No wallet found for your account. Please contact support.' 
+        });
+      }
       return;
     }
 
-    // Get private key from Privy
-    const privateKey = await privyWalletManager.getWalletPrivateKey(userWallet.id);
+    // Get private key from Privy using the wallet ID
+    const privateKey = await privyWalletManager.getWalletPrivateKey(userWalletMapping.privyWalletId);
     
     if (!privateKey) {
       await interaction.editReply({ 
@@ -836,6 +910,197 @@ export async function executeEmergencyLockdown(interaction: CommandInteraction) 
     console.error('❌ Error during emergency lockdown:', error);
     await interaction.editReply({ 
       content: '❌ Failed to complete emergency lockdown. Please check the bot logs for details.' 
+    });
+  }
+}
+
+// Nuclear lockdown command - immediately mute all unverified users
+export const nuclearLockdownCommand = new SlashCommandBuilder()
+  .setName('nuclear-lockdown')
+  .setDescription('🚨🚨 NUCLEAR: Immediately mute all unverified users and lock ALL channels')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+export async function executeNuclearLockdown(interaction: CommandInteraction) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: '❌ This command can only be used in a server!', ephemeral: true });
+    return;
+  }
+
+  // Check if user has admin permissions
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    await interaction.reply({ 
+      content: '❌ You need Administrator permissions to use this command!', 
+      ephemeral: true 
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const guild = interaction.guild;
+    
+    // Step 1: Create "Muted" role if it doesn't exist
+    let mutedRole = guild.roles.cache.find(role => role.name === '🔇 Muted');
+    if (!mutedRole) {
+      mutedRole = await guild.roles.create({
+        name: '🔇 Muted',
+        color: 0x808080,
+        permissions: [],
+        reason: 'Nuclear lockdown - mute unverified users'
+      });
+    }
+
+    // Step 2: Get all members and check verification status
+    const allMembers = await guild.members.fetch();
+    let mutedCount = 0;
+    let verifiedCount = 0;
+
+    for (const [memberId, member] of allMembers) {
+      if (member.user.bot) continue; // Skip bots
+      
+      const userVerification = await serverConfigManager.getUserVerification(memberId, guild.id);
+      
+      if (!userVerification || !userVerification.verified || !userVerification.onChainVerified) {
+        // MUTE unverified user
+        try {
+          await member.roles.add(mutedRole);
+          mutedCount++;
+          console.log(`🔇 MUTED unverified user: ${member.user.username}`);
+        } catch (error) {
+          console.error(`❌ Failed to mute ${member.user.username}:`, error);
+        }
+      } else {
+        verifiedCount++;
+        console.log(`✅ Verified user safe: ${member.user.username} (${userVerification.selectedCountry})`);
+      }
+    }
+
+    // Step 3: Set muted role permissions for all channels
+    const allChannels = guild.channels.cache.filter(channel => channel.isTextBased() && 'permissionOverwrites' in channel);
+    for (const [channelId, channel] of allChannels) {
+      try {
+        if ('permissionOverwrites' in channel) {
+          await (channel as any).permissionOverwrites.create(mutedRole, {
+            SendMessages: false,
+            AddReactions: false,
+            CreatePublicThreads: false,
+            CreatePrivateThreads: false,
+            SendMessagesInThreads: false
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Failed to set muted permissions in ${(channel as any).name}:`, error);
+      }
+    }
+
+    // Step 4: Run emergency lockdown as well
+    await serverConfigManager.emergencyChannelLockdown(guild.id);
+
+    await interaction.editReply({ 
+      content: '🚨🚨 **NUCLEAR LOCKDOWN COMPLETE!** 🚨🚨\n\n' +
+               `🔇 **Muted ${mutedCount} unverified users**\n` +
+               `✅ **${verifiedCount} verified users safe**\n\n` +
+               '🛡️ **Actions Taken:**\n' +
+               '• All unverified users muted server-wide\n' +
+               '• All country channels hidden from @everyone\n' +
+               '• Only verified users can chat\n' +
+               '• Channel isolation strictly enforced\n\n' +
+               '**Server is now SECURE!**'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error during nuclear lockdown:', error);
+    await interaction.editReply({ 
+      content: '❌ Failed to complete nuclear lockdown. Please check the bot logs for details.' 
+    });
+  }
+}
+
+// Debug command to check wallet mappings (temporary for troubleshooting)
+export const debugWalletCommand = new SlashCommandBuilder()
+  .setName('debug-wallet')
+  .setDescription('Debug: Check your wallet mapping (temporary command)');
+
+export async function executeDebugWallet(interaction: CommandInteraction) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: '❌ This command can only be used in a server!', ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const userId = interaction.user.id;
+    const guildId = interaction.guild.id;
+
+    // Get user verification data
+    const userVerification = await serverConfigManager.getUserVerification(userId, guildId);
+    
+    // Get user wallet mapping
+    const userWalletMapping = await databaseManager.getUserMapping(userId);
+    
+    // Get all wallet mappings for comparison
+    const allMappings = await databaseManager.getAllUserMappings();
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x0099FF)
+      .setTitle('🔍 Wallet Mapping Debug Info')
+      .addFields(
+        { name: '👤 Your Discord ID', value: `\`${userId}\``, inline: true },
+        { name: '📋 Username', value: interaction.user.username, inline: true },
+        { name: '🗃️ Total Mappings in DB', value: allMappings.length.toString(), inline: true }
+      );
+
+    if (userVerification) {
+      embed.addFields(
+        { name: '✅ Verification Record', value: 'Found', inline: true },
+        { name: '📱 Wallet Address (from verification)', value: userVerification.walletAddress ? `\`${userVerification.walletAddress.slice(0, 10)}...${userVerification.walletAddress.slice(-6)}\`` : 'None', inline: true },
+        { name: '🔐 Verified Status', value: userVerification.verified ? '✅ Yes' : '❌ No', inline: true }
+      );
+    } else {
+      embed.addFields({ name: '❌ Verification Record', value: 'Not found', inline: false });
+    }
+
+    if (userWalletMapping) {
+      embed.addFields(
+        { name: '✅ Wallet Mapping', value: 'Found', inline: true },
+        { name: '🆔 Privy Wallet ID', value: `\`${userWalletMapping.privyWalletId}\``, inline: true },
+        { name: '📱 Wallet Address (from mapping)', value: `\`${userWalletMapping.walletAddress.slice(0, 10)}...${userWalletMapping.walletAddress.slice(-6)}\``, inline: true },
+        { name: '📅 Mapping Created', value: `<t:${Math.floor(userWalletMapping.createdAt.getTime() / 1000)}:R>`, inline: true }
+      );
+    } else {
+      embed.addFields({ name: '❌ Wallet Mapping', value: 'Not found - this is the problem!', inline: false });
+      
+      // If verification exists but mapping doesn't, we can try to fix it
+      if (userVerification && userVerification.walletAddress) {
+        embed.addFields({ 
+          name: '🔧 Potential Fix', 
+          value: 'You have a verification record but no wallet mapping. This can happen with older accounts. Contact support to fix this.', 
+          inline: false 
+        });
+      }
+    }
+
+    // Show some example mappings for comparison
+    if (allMappings.length > 0) {
+      const exampleMappings = allMappings.slice(0, 3).map((mapping, index) => 
+        `${index + 1}. Discord ID: \`${mapping.discordId}\`\n   Privy ID: \`${mapping.privyWalletId}\`\n   Address: \`${mapping.walletAddress.slice(0, 6)}...${mapping.walletAddress.slice(-4)}\``
+      ).join('\n\n');
+      
+      embed.addFields({ 
+        name: '📋 Example Mappings in DB', 
+        value: exampleMappings || 'No mappings found', 
+        inline: false 
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error) {
+    console.error('❌ Error in debug wallet command:', error);
+    await interaction.editReply({ 
+      content: `❌ Debug error: ${error.message}` 
     });
   }
 }

@@ -10,12 +10,14 @@ export {
   executeSetupChannels,
   userDetailsCommand,
   executeUserDetails,
-  resetPermissionsCommand,
-  executeResetPermissions,
   sendCommand,
   executeSend,
   dmPrivateKeyCommand,
   executeDMPrivateKey,
   emergencyLockdownCommand,
-  executeEmergencyLockdown
+  executeEmergencyLockdown,
+  depositCommand,
+  executeDeposit,
+  debugWalletCommand,
+  executeDebugWallet
 } from "./verification.js";

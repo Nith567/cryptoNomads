@@ -428,8 +428,7 @@ async function handleSetupComplete(interaction: ButtonInteraction) {
     .setTitle('🎉 Server Setup Complete!')
     .setDescription(`**${interaction.guild.name}** is now configured with verification system!`)
     .addFields(
-      { name: '📋 What\'s Next?', value: 'Users can now use `/demo-verify` to verify their country and access channels.', inline: false },
-      { name: '⚙️ Admin Commands', value: '`/verify-status` - Check verification status', inline: false }
+      { name: '📋 What\'s Next?', value: 'Users can now use `/check-status` to verify their country and access channels.', inline: false },
     );
 
   await interaction.update({ embeds: [embed], components: [] });

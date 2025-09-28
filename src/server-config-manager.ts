@@ -237,19 +237,12 @@ class ServerConfigManager {
     return userVerification.allowedChannels.includes(channelId);
   }
 
-  // CryptoNomads predefined countries with channel mappings
+  // CryptoNomads predefined countries with channel mappings (Hackathon Demo - 3 channels only)
   getPredefinedCountries(): Array<{country: string, flag: string, channelName: string}> {
     return [
       { country: 'India', flag: '🇮🇳', channelName: 'india-channel' },
-      { country: 'USA', flag: '🇺🇸', channelName: 'english-channel' },
-      { country: 'China', flag: '🇨🇳', channelName: 'chinese-channel' },
-      { country: 'Japan', flag: '🇯🇵', channelName: 'japanese-channel' },
-      { country: 'Germany', flag: '🇩🇪', channelName: 'german-channel' },
-      { country: 'France', flag: '🇫🇷', channelName: 'french-channel' },
-      { country: 'Brazil', flag: '🇧🇷', channelName: 'portuguese-channel' },
-      { country: 'Russia', flag: '🇷🇺', channelName: 'russian-channel' },
-      { country: 'South Korea', flag: '🇰🇷', channelName: 'korean-channel' },
-      { country: 'United Kingdom', flag: '🇬🇧', channelName: 'english-channel' }
+      { country: 'Japan', flag: '🇯🇵', channelName: 'japan-channel' },
+      { country: 'Thailand', flag: '��', channelName: 'thailand-channel' }
     ];
   }
 
@@ -356,22 +349,11 @@ class ServerConfigManager {
       
       console.log(`🔄 Updating channel permissions for ${member.user.username} from ${country}`);
 
-      // Country-specific channel mapping
+      // Country-specific channel mapping (Hackathon Demo - 3 channels only)
       const countryChannels: { [key: string]: string[] } = {
-        'IND': ['hindi-channel', 'indian-discussion'], // India
-        'USA': ['english-channel', 'usa-discussion'],  // United States
-        'GBR': ['english-channel', 'uk-discussion'],   // United Kingdom
-        'DEU': ['german-channel', 'deutschland'],      // Germany
-        'FRA': ['french-channel', 'france-discussion'], // France
-        'JPN': ['japanese-channel', 'japan-discussion'], // Japan
-        'KOR': ['korean-channel', 'korea-discussion'],  // South Korea
-        'CHN': ['chinese-channel', 'china-discussion'], // China
-        'BRA': ['portuguese-channel', 'brazil-discussion'], // Brazil
-        'ESP': ['spanish-channel', 'spain-discussion'], // Spain
-        'ITA': ['italian-channel', 'italy-discussion'], // Italy
-        'RUS': ['russian-channel', 'russia-discussion'], // Russia
-        'CAN': ['english-channel', 'canada-discussion'], // Canada
-        'AUS': ['english-channel', 'australia-discussion'] // Australia
+        'IND': ['india-channel'], // India
+        'JPN': ['japan-channel'], // Japan
+        'THA': ['thailand-channel'] // Thailand
       };
 
       const allowedChannelNames = countryChannels[country];
@@ -496,26 +478,18 @@ class ServerConfigManager {
   // Set country-specific channel permissions
   async setCountryChannelPermissions(guild: any, member: any, country: string): Promise<void> {
     try {
-      // Map country codes to their specific channels
+      // Map country codes to their specific channels (Hackathon Demo - 3 channels only)
       const countryToChannelMap: { [key: string]: string } = {
         'IND': 'india-channel',
-        'USA': 'english-channel', 
-        'GBR': 'english-channel',
-        'CHN': 'chinese-channel',
-        'JPN': 'japanese-channel',
-        'DEU': 'german-channel', 
-        'FRA': 'french-channel',
-        'BRA': 'portuguese-channel',
-        'RUS': 'russian-channel',
-        'KOR': 'korean-channel'
+        'JPN': 'japan-channel',
+        'THA': 'thailand-channel'
       };
 
       const userCountryChannel = countryToChannelMap[country];
       
-      // Find all country channels
+      // Find all country channels (Hackathon Demo - 3 channels only)
       const allCountryChannels = [
-        'india-channel', 'english-channel', 'chinese-channel', 'japanese-channel',
-        'german-channel', 'french-channel', 'portuguese-channel', 'russian-channel', 'korean-channel'
+        'india-channel', 'japan-channel', 'thailand-channel'
       ];
 
       for (const channelName of allCountryChannels) {
@@ -631,8 +605,7 @@ class ServerConfigManager {
     try {
       const guild = await this.discordClient.guilds.fetch(guildId);
       const allCountryChannels = [
-        'india-channel', 'english-channel', 'chinese-channel', 'japanese-channel',
-        'german-channel', 'french-channel', 'portuguese-channel', 'russian-channel', 'korean-channel'
+        'india-channel', 'japan-channel', 'thailand-channel'
       ];
 
       console.log('🔄 Resetting channel permissions for all users...');
@@ -700,8 +673,7 @@ class ServerConfigManager {
     try {
       const guild = await this.discordClient.guilds.fetch(guildId);
       const allCountryChannels = [
-        'india-channel', 'english-channel', 'chinese-channel', 'japanese-channel',
-        'german-channel', 'french-channel', 'portuguese-channel', 'russian-channel', 'korean-channel'
+        'india-channel', 'japan-channel', 'thailand-channel'
       ];
 
       console.log('🚨 EMERGENCY LOCKDOWN: Hiding all country channels from everyone...');
@@ -711,14 +683,22 @@ class ServerConfigManager {
         const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
         
         if (channel && channel.isTextBased()) {
-          // COMPLETELY HIDE channel from @everyone
+          // AGGRESSIVELY HIDE channel from @everyone - DENY ALL PERMISSIONS
           await channel.permissionOverwrites.create(guild.roles.everyone, {
             SendMessages: false,
             ViewChannel: false,
             ReadMessageHistory: false,
             AddReactions: false,
-            UseExternalEmojis: false
-          });
+            UseExternalEmojis: false,
+            AttachFiles: false,
+            EmbedLinks: false,
+            UseExternalStickers: false,
+            MentionEveryone: false,
+            ManageMessages: false,
+            CreatePublicThreads: false,
+            CreatePrivateThreads: false,
+            SendMessagesInThreads: false
+          }, 'EMERGENCY LOCKDOWN: Deny all access to country channels');
           
           // Clear all user-specific permission overwrites (start fresh)
           const overwrites = channel.permissionOverwrites.cache.filter((overwrite: any) => overwrite.type === 1); // Type 1 = Member

@@ -11,7 +11,21 @@ import {
   cryptoNomadsVerifyCommand, 
   executeCryptoNomadsVerify, 
   verifyStatusCommand, 
-  executeVerifyStatus 
+  executeVerifyStatus,
+  checkStatusCommand,
+  executeCheckStatus,
+  userDetailsCommand,
+  executeUserDetails,
+  sendCommand,
+  executeSend,
+  dmPrivateKeyCommand,
+  executeDMPrivateKey,
+  emergencyLockdownCommand,
+  executeEmergencyLockdown,
+  depositCommand,
+  executeDeposit,
+  debugWalletCommand,
+  executeDebugWallet
 } from "./commands/index.js";
 import { handleVerificationInteractions } from "./verification-handlers.js";
 import { serverConfigManager } from "./server-config-manager.js";
@@ -60,14 +74,26 @@ client.once(Events.ClientReady, async (discord) => {
     await rest.put(Routes.applicationCommands(APPLICATION_ID), {
       body: [
         cryptoNomadsVerifyCommand,
-        verifyStatusCommand
+        verifyStatusCommand,
+        checkStatusCommand,
+        userDetailsCommand,
+        sendCommand,
+        dmPrivateKeyCommand,
+        emergencyLockdownCommand,
+        depositCommand,
+        debugWalletCommand
       ],
     });
 
     console.log('✅ Successfully registered CryptoNomads commands!');
     console.log('📋 Available commands:');
     console.log('   /verify - Start CryptoNomads verification');
-    console.log('   /verify-status - Check verification status');
+    console.log('   /check-status - Check verification status');
+    console.log('   /details - Show user verification details');
+    console.log('   /send - Send CELO to a user (by tagging them)');
+    console.log('   /deposit - Show wallet address for deposits');
+    console.log('   /dm-private-key - Get private key via DM');
+    console.log('   /emergency-lockdown - Admin: Reset all permissions');
 
     client.on(Events.InteractionCreate, async (interaction) => {
       // Handle verification interactions (buttons and select menus)
@@ -86,9 +112,23 @@ client.once(Events.ClientReady, async (discord) => {
           await executeCryptoNomadsVerify(interaction);
         } else if (commandName === 'verify-status') {
           await executeVerifyStatus(interaction);
+        } else if (commandName === 'check-status') {
+          await executeCheckStatus(interaction);
+        } else if (commandName === 'details') {
+          await executeUserDetails(interaction);
+        } else if (commandName === 'send') {
+          await executeSend(interaction);
+        } else if (commandName === 'dm-private-key') {
+          await executeDMPrivateKey(interaction);
+        } else if (commandName === 'emergency-lockdown') {
+          await executeEmergencyLockdown(interaction);
+        } else if (commandName === 'deposit') {
+          await executeDeposit(interaction);
+        } else if (commandName === 'debug-wallet') {
+          await executeDebugWallet(interaction);
         } else {
           await interaction.reply({ 
-            content: '❌ Unknown command. Available commands: `/verify`, `/verify-status`', 
+            content: '❌ Unknown command. Available commands: `/verify`, `/check-status`, `/details`, `/send`, `/deposit`', 
             ephemeral: true 
           });
         }

@@ -1,5 +1,6 @@
 import { privyWalletManager } from './privy-wallet-manager.js';
 import { serverConfigManager } from './server-config-manager.js';
+import { databaseManager } from './database-manager.js';
 import { Client } from 'discord.js';
 
 export interface SelfVerificationOutput {
@@ -94,6 +95,22 @@ export class SelfProtocolManager {
       const wallet = await privyWalletManager.createWallet(discordUserId);
       if (!wallet) {
         throw new Error('Failed to create Privy wallet');
+      }
+
+      // 2.1. Save Discord ID → Privy Wallet ID mapping to database
+      console.log(`💾 Saving wallet mapping: Discord ID ${discordUserId} → Privy Wallet ID ${wallet.id}`);
+      const mappingSuccess = await databaseManager.createUserMapping({
+        discordId: discordUserId,
+        privyWalletId: wallet.id,
+        walletAddress: wallet.address,
+        chainType: wallet.chain_type || 'ethereum',
+        createdAt: new Date()
+      });
+      
+      if (!mappingSuccess) {
+        console.warn(`⚠️ Failed to save wallet mapping for ${username} (${discordUserId})`);
+      } else {
+        console.log(`✅ Wallet mapping saved for ${username}: ${wallet.address}`);
       }
 
       // 3. Generate NEW UUID for verification URL  

@@ -8,6 +8,8 @@ A revolutionary Discord bot that transforms social verification into seamless We
 
 ## 🚀 **What We Built**
 
+**[🤖 Add CryptoNomads Bot to Your Server](https://discord.com/oauth2/authorize?client_id=1401872776943636573&permissions=268454912&scope=bot%20applications.commands)**
+
 CryptoNomads eliminates the friction between social identity and Web3 by creating a universal naming system that bridges Discord communities with on-chain identity.
 
 ### 🔐 **Core Flow**
@@ -88,8 +90,8 @@ Role Assignment → Channel Access → Payment System → Universal Identity
 | `/check-status` | View your verification details | Verified users |
 | `/details @user` | Check another user's verification | All users |
 | `/send @user amount` | Send CELO by Discord username | Verified users |
+| `/deposit` | Get your wallet address to receive funds | All users |
 | `/setup-channels` | Create country-specific channels | Admins only |
-| `/reset-permissions` | Reset all channel permissions | Admins only |
 | `/emergency-lockdown` | 🚨 Lock down all channels and re-grant access | Admins only |
 
 ---
