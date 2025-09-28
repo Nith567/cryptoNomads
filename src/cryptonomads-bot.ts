@@ -110,9 +110,8 @@ client.once(Events.ClientReady, async (discord) => {
         // CryptoNomads Verification Commands
         if (commandName === 'verify') {
           await executeCryptoNomadsVerify(interaction);
-        } else if (commandName === 'verify-status') {
-          await executeVerifyStatus(interaction);
-        } else if (commandName === 'check-status') {
+        } 
+         else if (commandName === 'check-status') {
           await executeCheckStatus(interaction);
         } else if (commandName === 'details') {
           await executeUserDetails(interaction);

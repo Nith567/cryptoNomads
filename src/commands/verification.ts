@@ -96,7 +96,6 @@ export async function executeCryptoNomadsVerify(interaction: CommandInteraction)
   }
 }
 
-// Check verification status command
 export const verifyStatusCommand = new SlashCommandBuilder()
   .setName('verify-status')
   .setDescription('Check your verification status');
@@ -197,7 +196,7 @@ const CONTRACT_ABI = [
 
 // Celo mainnet RPC and contract address
 const CELO_RPC_URL = 'https://forno.celo.org';
-const CONTRACT_ADDRESS = '0x149cbA3EE15C863563a18808814a10815369458E';
+const CONTRACT_ADDRESS = '0xa8CBeF9Be56605c524Af840fC525eE076ECf20a3';
 
 // Check status command (queries the smart contract)
 export const checkStatusCommand = new SlashCommandBuilder()
@@ -323,7 +322,7 @@ console.log(contractData);
           { name: '⚧️ Gender', value: genderDisplay, inline: true },
           { name: '🔞 Age Status', value: contractData.isAdult ? '✅ Adult (18+)' : '❌ Under 18', inline: true },
           { name: '📱 Wallet Address', value: `\`${contractData.walletAddress.slice(0, 3)}...${contractData.walletAddress.slice(-4)}\``, inline: true },
-          { name: '🏷️ ENS Name', value: `[\`${ensName}\`](https://ens-resolver-address.onrender.com/resolve/${ensName})`, inline: true },
+          { name: '🏷️ ENS Name', value: `[\`${ensName}\`](http://localhost:3000/resolve/${ensName})`, inline: true },
           { name: '⛓️ Blockchain', value: 'Celo Mainnet', inline: true },
          
         )
@@ -356,7 +355,7 @@ console.log(contractData);
 // Setup country channels command (Admin only)
 export const setupChannelsCommand = new SlashCommandBuilder()
   .setName('setup-channels')
-  .setDescription('Setup country-specific verification channels (Admin only)')
+  .setDescription('Setup country-specific and cross-verification channels (Admin only)')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 export async function executeSetupChannels(interaction: CommandInteraction) {
@@ -370,23 +369,29 @@ export async function executeSetupChannels(interaction: CommandInteraction) {
   try {
     const guild = interaction.guild;
     
-    // Country channels to create
+    // Country-specific channels (gated by country)
     const countryChannels = [
       { name: 'india-channel', description: '🇮🇳 For verified Indian users only' },
-      { name: 'english-channel', description: '🇺🇸🇬🇧 For verified English-speaking users' },
-      { name: 'german-channel', description: '🇩🇪 For verified German users only' },
-      { name: 'french-channel', description: '🇫🇷 For verified French users only' },
-      { name: 'japanese-channel', description: '🇯🇵 For verified Japanese users only' },
-      { name: 'korean-channel', description: '🇰🇷 For verified Korean users only' },
-      { name: 'chinese-channel', description: '🇨🇳 For verified Chinese users only' },
-      { name: 'spanish-channel', description: '🇪🇸 For verified Spanish users only' },
-      { name: 'portuguese-channel', description: '🇧🇷 For verified Portuguese users only' }
+      { name: 'japan-channel', description: '�� For verified Japanese users only' },
+      { name: 'china-channel', description: '�� For verified Chinese users only' },
+      { name: 'thailand-channel', description: '�� For verified Thai users only' }
     ];
+
+    // Cross-channels (accessible to ALL verified users)
+    const crossChannels = [
+      { name: 'cross-thailand', description: '��🇭 Thailand discussion - open to all verified users' },
+      { name: 'cross-china', description: '��🇳 China discussion - open to all verified users' },
+      { name: 'cross-japan', description: '🌐�� Japan discussion - open to all verified users' },
+      { name: 'cross-india', description: '🌐�� India discussion - open to all verified users' },
+      { name: 'cross-general', description: '� General cross-country discussion - open to all verified users' }
+    ];
+
+    const allChannelsToCreate = [...countryChannels, ...crossChannels];
 
     let createdCount = 0;
     let existingCount = 0;
 
-    for (const channelInfo of countryChannels) {
+    for (const channelInfo of allChannelsToCreate) {
       const existingChannel = guild.channels.cache.find((ch: any) => ch.name === channelInfo.name);
       
       if (!existingChannel) {
@@ -414,13 +419,14 @@ export async function executeSetupChannels(interaction: CommandInteraction) {
 
     const embed = new EmbedBuilder()
       .setColor(0x00FF00)
-      .setTitle('🛠️ Country Channels Setup Complete')
+      .setTitle('🛠️ Verification Channels Setup Complete')
       .addFields(
         { name: '✅ Channels Created', value: createdCount.toString(), inline: true },
         { name: '📋 Already Existed', value: existingCount.toString(), inline: true },
-        { name: '📝 How It Works', value: 'Users get access to their country channel after verification:\n• India 🇮🇳 → #hindi-channel\n• USA/UK → #english-channel\n• Germany 🇩🇪 → #german-channel\n• And more...', inline: false }
+        { name: '🏛️ Country-Specific Channels', value: '• 🇮🇳 #india-channel (Indians only)\n• 🇯🇵 #japan-channel (Japanese only)\n• �🇳 #china-channel (Chinese only)\n• 🇹🇭 #thailand-channel (Thai only)', inline: false },
+        { name: '🌐 Cross-Channels', value: '• #cross-thailand (all verified users)\n• #cross-china (all verified users)\n• #cross-japan (all verified users)\n• #cross-india (all verified users)\n• #cross-general (all verified users)', inline: false }
       )
-      .setFooter({ text: 'Only verified users from each country can access their channels' });
+      .setFooter({ text: 'Country channels = country-gated | Cross channels = all verified users' });
 
     await interaction.editReply({ embeds: [embed] });
 
@@ -487,7 +493,7 @@ export async function executeUserDetails(interaction: CommandInteraction) {
         { name: '⚧️ Gender', value: genderDisplay, inline: true },
         { name: '🔞 Age Status', value: userVerification.isAdult ? '✅ Adult (18+)' : '❌ Under 18', inline: true },
         { name: '📱 Wallet Address', value: userVerification.walletAddress ? `\`${userVerification.walletAddress.slice(0, 6)}...${userVerification.walletAddress.slice(-4)}\`` : 'Not available', inline: true },
-        { name: '🏷️ ENS Name', value: userVerification.ensName ? `[\`${userVerification.ensName}\`](https://ens-resolver-address.onrender.com/resolve/${userVerification.ensName})` : 'Not minted', inline: true }
+        { name: '🏷️ ENS Name', value: userVerification.ensName ? `[\`${userVerification.ensName}\`](http://localhost:3000/resolve/${userVerification.ensName})` : 'Not minted', inline: true }
       )
       .addFields(
         { name: '✅ Verification Status', value: `On-Chain: ${userVerification.onChainVerified ? '✅' : '❌'}`, inline: true },
@@ -601,7 +607,8 @@ export async function executeSend(interaction: CommandInteraction) {
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  // Defer reply immediately to prevent timeout (give us 15 minutes)
+  await interaction.deferReply({ ephemeral: false });
 
   try {
     const recipientUser = interaction.options.get('recipient')?.user;
@@ -734,7 +741,7 @@ export async function executeSend(interaction: CommandInteraction) {
           { name: '💰 Amount', value: `${amount} CELO`, inline: true },
           { name: '📍 Recipient Address', value: `\`${recipientAddress.slice(0, 6)}...${recipientAddress.slice(-4)}\``, inline: true },
           { name: '🏷️ ENS Name', value: ensName, inline: true },
-          { name: '🔗 Transaction', value: `[View on Celoscan](${result.explorerUrl})`, inline: false },
+          { name: '🔗 Transaction', value: `[View on Celoscan](https://celoscan.io/tx/${result.txHash})`, inline: false },
           { name: '⛽ Gas Used', value: result.gasUsed || '21000', inline: true },
           { name: '📊 Block', value: result.blockNumber || 'Pending', inline: true }
         )
@@ -875,7 +882,7 @@ export async function executeDMPrivateKey(interaction: CommandInteraction) {
 // Emergency lockdown command (admin only)
 export const emergencyLockdownCommand = new SlashCommandBuilder()
   .setName('emergency-lockdown')
-  .setDescription('🚨 EMERGENCY: Lock down all country channels and re-grant access only to verified users')
+  .setDescription('🚨 EMERGENCY: Lock down all channels and re-grant access only to verified users')
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 export async function executeEmergencyLockdown(interaction: CommandInteraction) {
@@ -900,9 +907,10 @@ export async function executeEmergencyLockdown(interaction: CommandInteraction) 
     
     await interaction.editReply({ 
       content: '🚨 **EMERGENCY LOCKDOWN COMPLETE!**\n\n' +
-               '🔒 All country channels are now HIDDEN from everyone\n' +
-               '✅ Only verified users can see their country channel\n' +
-               '🛡️ Unverified users cannot see ANY country channels\n\n' +
+               '🏛️ **Country Channels:** Only specific country members can see\n' +
+               '🌐 **Cross Channels:** All verified users can access\n' +
+               '🔒 All channels hidden from @everyone\n' +
+               '🛡️ Unverified users cannot see ANY channels\n\n' +
                '**Channel access is now strictly enforced!**'
     });
     
@@ -1003,9 +1011,10 @@ export async function executeNuclearLockdown(interaction: CommandInteraction) {
                `✅ **${verifiedCount} verified users safe**\n\n` +
                '🛡️ **Actions Taken:**\n' +
                '• All unverified users muted server-wide\n' +
-               '• All country channels hidden from @everyone\n' +
-               '• Only verified users can chat\n' +
-               '• Channel isolation strictly enforced\n\n' +
+               '• Country channels: Only specific country members can see\n' +
+               '• Cross channels: All verified users can access\n' +
+               '• All channels hidden from @everyone\n' +
+               '• Only verified users can chat\n\n' +
                '**Server is now SECURE!**'
     });
     
