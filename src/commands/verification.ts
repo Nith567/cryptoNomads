@@ -322,7 +322,7 @@ console.log(contractData);
           { name: '⚧️ Gender', value: genderDisplay, inline: true },
           { name: '🔞 Age Status', value: contractData.isAdult ? '✅ Adult (18+)' : '❌ Under 18', inline: true },
           { name: '📱 Wallet Address', value: `\`${contractData.walletAddress.slice(0, 3)}...${contractData.walletAddress.slice(-4)}\``, inline: true },
-          { name: '🏷️ ENS Name', value: `[\`${ensName}\`](http://localhost:3000/resolve/${ensName})`, inline: true },
+          { name: '🏷️ ENS Name', value: `[\`${ensName}\`](https://ens-resolver-address.vercel.app/resolve/${ensName})`, inline: true },
           { name: '⛓️ Blockchain', value: 'Celo Mainnet', inline: true },
          
         )
@@ -493,7 +493,7 @@ export async function executeUserDetails(interaction: CommandInteraction) {
         { name: '⚧️ Gender', value: genderDisplay, inline: true },
         { name: '🔞 Age Status', value: userVerification.isAdult ? '✅ Adult (18+)' : '❌ Under 18', inline: true },
         { name: '📱 Wallet Address', value: userVerification.walletAddress ? `\`${userVerification.walletAddress.slice(0, 6)}...${userVerification.walletAddress.slice(-4)}\`` : 'Not available', inline: true },
-        { name: '🏷️ ENS Name', value: userVerification.ensName ? `[\`${userVerification.ensName}\`](http://localhost:3000/resolve/${userVerification.ensName})` : 'Not minted', inline: true }
+        { name: '🏷️ ENS Name', value: userVerification.ensName ? `[\`${userVerification.ensName}\`](https://ens-resolver-address.vercel.app/resolve/${userVerification.ensName})` : 'Not minted', inline: true }
       )
       .addFields(
         { name: '✅ Verification Status', value: `On-Chain: ${userVerification.onChainVerified ? '✅' : '❌'}`, inline: true },
@@ -1110,6 +1110,95 @@ export async function executeDebugWallet(interaction: CommandInteraction) {
     console.error('❌ Error in debug wallet command:', error);
     await interaction.editReply({ 
       content: `❌ Debug error: ${error.message}` 
+    });
+  }
+}
+
+// Fix country role permissions command (Admin only)
+export const fixRolesCommand = new SlashCommandBuilder()
+  .setName('fix-roles')
+  .setDescription('Fix country role permissions to prevent channel bleeding (Admin only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+export async function executeFixRoles(interaction: CommandInteraction) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: '❌ This command can only be used in a server!', ephemeral: true });
+    return;
+  }
+
+  // Check if user has admin permissions
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    await interaction.reply({ 
+      content: '❌ You need Administrator permissions to use this command!', 
+      ephemeral: true 
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await serverConfigManager.fixCountryRolePermissions(interaction.guild.id);
+    
+    await interaction.editReply({ 
+      content: '✅ **Country Role Permissions Fixed!**\n\n' +
+               '🔧 **Actions Taken:**\n' +
+               '• Removed all server-level permissions from country roles\n' +
+               '• Country roles now have NO "View Channels" permission\n' +
+               '• Channel access is now controlled ONLY by individual channel permissions\n\n' +
+               '🛡️ **Result:** Users can now ONLY see their own country channel + cross channels!'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fixing role permissions:', error);
+    await interaction.editReply({ 
+      content: '❌ Failed to fix role permissions. Please check the bot logs for details.' 
+    });
+  }
+}
+
+// Setup role-based channel permissions command (Admin only)
+export const setupRolePermissionsCommand = new SlashCommandBuilder()
+  .setName('setup-role-permissions')
+  .setDescription('Setup role-based permissions for country channels (Admin only)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+
+export async function executeSetupRolePermissions(interaction: CommandInteraction) {
+  if (!interaction.guild) {
+    await interaction.reply({ content: '❌ This command can only be used in a server!', ephemeral: true });
+    return;
+  }
+
+  // Check if user has admin permissions
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    await interaction.reply({ 
+      content: '❌ You need Administrator permissions to use this command!', 
+      ephemeral: true 
+    });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await serverConfigManager.setupRoleBasedChannelPermissions(interaction.guild.id);
+    
+    await interaction.editReply({ 
+      content: '✅ **Role-Based Channel Permissions Setup Complete!**\n\n' +
+               '🏛️ **Country Channels:** Require specific country role\n' +
+               '• 🇮🇳 #india-channel ← 🌍 India role\n' +
+               '• 🇯🇵 #japan-channel ← 🌍 Japan role\n' +
+               '• 🇨🇳 #china-channel ← 🌍 China role\n' +
+               '• 🇹🇭 #thailand-channel ← 🌍 Thailand role\n\n' +
+               '🌐 **Cross Channels:** Require ✅ Verified role\n' +
+               '• All cross-channels accessible to verified users\n\n' +
+               '🛡️ **Result:** Only users with the correct roles can access channels!'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error setting up role permissions:', error);
+    await interaction.editReply({ 
+      content: '❌ Failed to setup role-based permissions. Please check the bot logs for details.' 
     });
   }
 }

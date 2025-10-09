@@ -26,7 +26,11 @@ import {
   emergencyLockdownCommand,
   executeEmergencyLockdown,
   depositCommand,
-  executeDeposit
+  executeDeposit,
+  fixRolesCommand,
+  executeFixRoles,
+  setupRolePermissionsCommand,
+  executeSetupRolePermissions
 } from "./commands/index.js";
 import { handleVerificationInteractions } from "./verification-handlers.js";
 import { serverConfigManager } from "./server-config-manager.js";
@@ -78,7 +82,9 @@ client.once(Events.ClientReady, async (discord) => {
         sendCommand,
         dmPrivateKeyCommand,
         emergencyLockdownCommand,
-        depositCommand
+        depositCommand,
+        fixRolesCommand,
+        setupRolePermissionsCommand
       ],
     });
 
@@ -128,6 +134,10 @@ client.once(Events.ClientReady, async (discord) => {
           await executeEmergencyLockdown(interaction);
         } else if (commandName === 'deposit') {
           await executeDeposit(interaction);
+        } else if (commandName === 'fix-roles') {
+          await executeFixRoles(interaction);
+        } else if (commandName === 'setup-role-permissions') {
+          await executeSetupRolePermissions(interaction);
         } else {
           await interaction.reply({ 
             content: '❌ Unknown command. Available commands: `/verify`, `/check-status`, `/setup-channels`, `/details`, `/reset-permissions`, `/send`, `/dm-private-key`, `/emergency-lockdown`, `/deposit`', 

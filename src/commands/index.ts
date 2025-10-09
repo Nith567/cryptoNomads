@@ -19,5 +19,9 @@ export {
   depositCommand,
   executeDeposit,
   debugWalletCommand,
-  executeDebugWallet
+  executeDebugWallet,
+  fixRolesCommand,
+  executeFixRoles,
+  setupRolePermissionsCommand,
+  executeSetupRolePermissions
 } from "./verification.js";

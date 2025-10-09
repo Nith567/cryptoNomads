@@ -366,16 +366,17 @@ class ServerConfigManager {
       const userData = await this.getUserVerification(member.id, guild.id);
       if (!userData) return;
 
-      // 1. Country Role
+      // 1. Country Role (with NO server-level channel permissions)
       const countryRoleName = `🌍 ${this.getCountryName(country)}`;
       let countryRole = guild.roles.cache.find((role: any) => role.name === countryRoleName);
       if (!countryRole) {
         countryRole = await guild.roles.create({
           name: countryRoleName,
           color: this.getCountryColor(country),
-          reason: `Country role for ${country} verification`
+          permissions: [], // NO permissions at server level - channels controlled individually
+          reason: `Country role for ${country} verification - no server permissions`
         });
-        console.log(`✅ Created role: ${countryRoleName}`);
+        console.log(`✅ Created role: ${countryRoleName} (no server-level permissions)`);
       }
       await member.roles.add(countryRole);
       console.log(`✅ Added ${member.user.username} to role: ${countryRoleName}`);
@@ -433,6 +434,36 @@ class ServerConfigManager {
         console.log(`✅ Added ${member.user.username} to ENS role: ${ensRoleName}`);
       }
 
+      // 5. General Verified Role (for cross-channel access)
+      const verifiedRoleName = '✅ Verified';
+      let verifiedRole = guild.roles.cache.find((role: any) => role.name === verifiedRoleName);
+      if (!verifiedRole) {
+        verifiedRole = await guild.roles.create({
+          name: verifiedRoleName,
+          color: 0x00FF00,
+          permissions: [], // No server-level permissions
+          reason: 'General verified user role for cross-channels'
+        });
+        console.log(`✅ Created general verified role: ${verifiedRoleName}`);
+      }
+      await member.roles.add(verifiedRole);
+      console.log(`✅ Added ${member.user.username} to general verified role: ${verifiedRoleName}`);
+
+      // 6. Master CryptoNomads Role
+      const masterRoleName = '🏛️ CryptoNomad';
+      let masterRole = guild.roles.cache.find((role: any) => role.name === masterRoleName);
+      if (!masterRole) {
+        masterRole = await guild.roles.create({
+          name: masterRoleName,
+          color: 0x7C3AED,
+          permissions: [], // No server-level permissions
+          reason: 'Master CryptoNomads verified member role'
+        });
+        console.log(`✅ Created master CryptoNomads role: ${masterRoleName}`);
+      }
+      await member.roles.add(masterRole);
+      console.log(`✅ Added ${member.user.username} to master role: ${masterRoleName}`);
+
     } catch (error) {
       console.error(`❌ Error creating verification roles:`, error);
     }
@@ -449,6 +480,14 @@ class ServerConfigManager {
         'THA': 'thailand-channel'
       };
 
+      // Country roles mapping
+      const countryToRoleMap: { [key: string]: string } = {
+        'IND': '🌍 India',
+        'JPN': '🌍 Japan',
+        'CHN': '🌍 China', 
+        'THA': '🌍 Thailand'
+      };
+
       // Cross-channels - accessible to ALL verified users regardless of country
       const crossChannels = [
         'cross-thailand',
@@ -459,15 +498,31 @@ class ServerConfigManager {
       ];
 
       const userCountryChannel = countryToChannelMap[country];
+      const userCountryRole = countryToRoleMap[country];
       const allCountryChannels = Object.values(countryToChannelMap);
 
-      // 1. Handle country-specific channels
+      // 1. Handle country-specific channels with ROLE-BASED permissions
       for (const channelName of allCountryChannels) {
         const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
         
         if (channel && channel.isTextBased()) {
           if (channelName === userCountryChannel) {
-            // User's country channel - FULL ACCESS (can see and chat)
+            // User's country channel - Set up role-based permissions
+            const countryRole = guild.roles.cache.find((role: any) => role.name === userCountryRole);
+            
+            if (countryRole) {
+              // Grant role-based access to the channel
+              await channel.permissionOverwrites.create(countryRole, {
+                SendMessages: true,
+                ViewChannel: true,
+                ReadMessageHistory: true,
+                AddReactions: true,
+                UseExternalEmojis: true
+              });
+              console.log(`✅ Granted ROLE-BASED access to #${channelName} for role: ${userCountryRole}`);
+            }
+
+            // Also grant individual user access (backup)
             await channel.permissionOverwrites.create(member, {
               SendMessages: true,
               ViewChannel: true,
@@ -475,17 +530,24 @@ class ServerConfigManager {
               AddReactions: true,
               UseExternalEmojis: true
             });
-            console.log(`✅ Granted ${member.user.username} FULL ACCESS to #${channelName} (${country})`);
+            console.log(`✅ Granted ${member.user.username} individual access to #${channelName} (${country})`);
           } else {
-            // Other country channels - COMPLETELY HIDDEN (no view, no chat)
+            // Other country channels - EXPLICITLY DENY ALL ACCESS (overrides role permissions)
             await channel.permissionOverwrites.create(member, {
               SendMessages: false,
               ViewChannel: false,
               ReadMessageHistory: false,
               AddReactions: false,
-              UseExternalEmojis: false
-            });
-            console.log(`✅ BLOCKED ${member.user.username} from seeing #${channelName} (not their country)`);
+              UseExternalEmojis: false,
+              AttachFiles: false,
+              EmbedLinks: false,
+              UseExternalStickers: false,
+              MentionEveryone: false,
+              CreatePublicThreads: false,
+              CreatePrivateThreads: false,
+              SendMessagesInThreads: false
+            }, 'STRICT ISOLATION: Block access to other country channels');
+            console.log(`🚫 STRICTLY BLOCKED ${member.user.username} from seeing #${channelName} (not their country)`);
           }
         }
       }
@@ -728,6 +790,139 @@ class ServerConfigManager {
       
     } catch (error) {
       console.error('❌ Error during emergency lockdown:', error);
+    }
+  }
+
+  // Fix existing country roles to have no server-level permissions
+  async fixCountryRolePermissions(guildId: string): Promise<void> {
+    if (!this.discordClient) {
+      console.error('❌ Discord client not set');
+      return;
+    }
+
+    try {
+      const guild = await this.discordClient.guilds.fetch(guildId);
+      
+      // Country role patterns to fix
+      const countryRolePatterns = [
+        '🌍 India', '🌍 Japan', '🌍 China', '🌍 Thailand',
+        '🌍 United States', '🌍 Germany', '🌍 France'
+      ];
+
+      console.log('🔧 Fixing country role permissions...');
+
+      for (const roleName of countryRolePatterns) {
+        const role = guild.roles.cache.find((r: any) => r.name === roleName);
+        
+        if (role) {
+          // Remove ALL server-level permissions from country roles
+          await role.setPermissions([], `Fix permissions: Country roles should have no server-level permissions`);
+          console.log(`✅ Fixed permissions for role: ${roleName} - removed all server permissions`);
+        }
+      }
+
+      console.log('🔧 Country role permission fix complete');
+
+    } catch (error) {
+      console.error('❌ Error fixing country role permissions:', error);
+    }
+  }
+
+  // Set up role-based permissions for country channels
+  async setupRoleBasedChannelPermissions(guildId: string): Promise<void> {
+    if (!this.discordClient) {
+      console.error('❌ Discord client not set');
+      return;
+    }
+
+    try {
+      const guild = await this.discordClient.guilds.fetch(guildId);
+      
+      // Channel to role mapping
+      const channelRoleMap = [
+        { channel: 'india-channel', role: '🌍 India' },
+        { channel: 'japan-channel', role: '🌍 Japan' },
+        { channel: 'china-channel', role: '🌍 China' },
+        { channel: 'thailand-channel', role: '🌍 Thailand' }
+      ];
+
+      console.log('🔧 Setting up role-based channel permissions...');
+
+      for (const mapping of channelRoleMap) {
+        const channel = guild.channels.cache.find((ch: any) => ch.name === mapping.channel);
+        const role = guild.roles.cache.find((r: any) => r.name === mapping.role);
+        
+        if (channel && channel.isTextBased() && role) {
+          // First, deny @everyone access to the channel
+          await channel.permissionOverwrites.create(guild.roles.everyone, {
+            SendMessages: false,
+            ViewChannel: false,
+            ReadMessageHistory: false,
+            AddReactions: false,
+            UseExternalEmojis: false
+          }, 'Country channel: Deny everyone by default');
+
+          // Then, allow only the specific country role
+          await channel.permissionOverwrites.create(role, {
+            SendMessages: true,
+            ViewChannel: true,
+            ReadMessageHistory: true,
+            AddReactions: true,
+            UseExternalEmojis: true
+          }, `Country channel: Allow ${mapping.role} role only`);
+
+          console.log(`✅ Set up role-based permissions: #${mapping.channel} ← ${mapping.role}`);
+        } else {
+          if (!channel) console.log(`⚠️ Channel #${mapping.channel} not found`);
+          if (!role) console.log(`⚠️ Role ${mapping.role} not found`);
+        }
+      }
+
+      // Set up cross-channels for all verified users (create a general verified role)
+      const verifiedRole = guild.roles.cache.find((r: any) => r.name === '✅ Verified');
+      if (!verifiedRole) {
+        const newVerifiedRole = await guild.roles.create({
+          name: '✅ Verified',
+          color: 0x00FF00,
+          permissions: [],
+          reason: 'General verified user role for cross-channels'
+        });
+        console.log('✅ Created general verified role');
+      }
+
+      const crossChannels = ['cross-thailand', 'cross-china', 'cross-japan', 'cross-india', 'cross-general'];
+      const finalVerifiedRole = guild.roles.cache.find((r: any) => r.name === '✅ Verified');
+
+      if (finalVerifiedRole) {
+        for (const channelName of crossChannels) {
+          const channel = guild.channels.cache.find((ch: any) => ch.name === channelName);
+          
+          if (channel && channel.isTextBased()) {
+            // Deny @everyone
+            await channel.permissionOverwrites.create(guild.roles.everyone, {
+              SendMessages: false,
+              ViewChannel: false,
+              ReadMessageHistory: false
+            }, 'Cross-channel: Deny everyone by default');
+
+            // Allow verified users
+            await channel.permissionOverwrites.create(finalVerifiedRole, {
+              SendMessages: true,
+              ViewChannel: true,
+              ReadMessageHistory: true,
+              AddReactions: true,
+              UseExternalEmojis: true
+            }, 'Cross-channel: Allow all verified users');
+
+            console.log(`✅ Set up verified-only permissions: #${channelName}`);
+          }
+        }
+      }
+
+      console.log('🔧 Role-based channel permissions setup complete');
+
+    } catch (error) {
+      console.error('❌ Error setting up role-based channel permissions:', error);
     }
   }
 }

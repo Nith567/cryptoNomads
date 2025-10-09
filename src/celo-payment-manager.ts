@@ -29,7 +29,7 @@ export class CeloPaymentManager {
    */
   async resolveENSToAddress(ensName: string): Promise<string | null> {
     try {
-      const apiUrl = `http://localhost:3000/resolve/${ensName}`;
+      const apiUrl = `https://ens-resolver-address.vercel.app/resolve/${ensName}`;
       console.log(`🔍 Resolving ENS: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
